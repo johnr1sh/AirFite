@@ -3,13 +3,15 @@ package dev.johnrish.pocketengineer.background
 import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
+import dev.johnrish.pocketengineer.SecureKeyStore
 
 data class BackgroundTaskRecord(
     val id: String,
     val status: String,
     val createdAt: Long,
     val encryptedResult: String = "",
-    val error: String = ""
+    val error: String = "",
+    val encryptedTitle: String = ""
 )
 
 data class BackgroundTaskInput(
@@ -23,6 +25,7 @@ object BackgroundTaskStore {
     private const val PREFS = "airfite_background_tasks"
     private const val RECORDS = "records"
     private const val INPUT_PREFIX = "input_"
+    private val keys = SecureKeyStore()
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
@@ -35,27 +38,27 @@ object BackgroundTaskStore {
                     status = json.optString("status"),
                     createdAt = json.optLong("createdAt"),
                     encryptedResult = json.optString("result"),
-                    error = json.optString("error")
+                    error = json.optString("error"),
+                    encryptedTitle = json.optString("title")
                 )
             }
         }.sortedByDescending { it.createdAt }
     }.getOrDefault(emptyList())
 
     fun add(context: Context, id: String, input: BackgroundTaskInput) {
-        val encryptedPrompt = dev.johnrish.pocketengineer.SecureKeyStore().encrypt(input.prompt)
         val storedInput = JSONObject()
-            .put("prompt", encryptedPrompt)
+            .put("prompt", keys.encrypt(input.prompt))
             .put("apiKey", input.encryptedApiKey)
             .put("baseUrl", input.baseUrl)
             .put("model", input.model)
         prefs(context).edit().putString(INPUT_PREFIX + id, storedInput.toString()).apply()
-        update(context, BackgroundTaskRecord(id, "Queued", System.currentTimeMillis(), encryptedTitle = dev.johnrish.pocketengineer.SecureKeyStore().encrypt(input.prompt.take(72))))
+        update(context, BackgroundTaskRecord(id, "Queued", System.currentTimeMillis(), encryptedTitle = keys.encrypt(input.prompt.take(72))))
     }
 
     fun input(context: Context, id: String): BackgroundTaskInput? = runCatching {
         val json = JSONObject(prefs(context).getString(INPUT_PREFIX + id, null) ?: return null)
         BackgroundTaskInput(
-            prompt = dev.johnrish.pocketengineer.SecureKeyStore().decrypt(json.getString("prompt")),
+            prompt = keys.decrypt(json.getString("prompt")),
             encryptedApiKey = json.getString("apiKey"),
             baseUrl = json.getString("baseUrl"),
             model = json.getString("model")
@@ -85,6 +88,6 @@ object BackgroundTaskStore {
         prefs(context).edit().putString(RECORDS, records.toString()).remove(INPUT_PREFIX + id).apply()
     }
 
-    fun decryptResult(record: BackgroundTaskRecord): String =
-        dev.johnrish.pocketengineer.SecureKeyStore().decrypt(record.encryptedResult)
+    fun decryptResult(record: BackgroundTaskRecord): String = keys.decrypt(record.encryptedResult)
+    fun decryptTitle(record: BackgroundTaskRecord): String = keys.decrypt(record.encryptedTitle)
 }
