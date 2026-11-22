@@ -32,6 +32,10 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     var model by androidx.compose.runtime.mutableStateOf(prefs.getString("model", "gpt-4o-mini") ?: "")
     var settingsError by androidx.compose.runtime.mutableStateOf<String?>(null)
         private set
+    var connectionStatus by androidx.compose.runtime.mutableStateOf<String?>(null)
+        private set
+    var testingConnection by androidx.compose.runtime.mutableStateOf(false)
+        private set
     var workspaceUri by androidx.compose.runtime.mutableStateOf(prefs.getString("workspaceUri", null)?.let(Uri::parse))
         private set
     var workspaceName by androidx.compose.runtime.mutableStateOf<String?>(null)
@@ -85,6 +89,39 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             if ((role == "user" || role == "assistant") && text.isNotBlank()) ChatMessage(role, text) else null
         }.takeLast(MAX_SAVED_MESSAGES)
     }.getOrDefault(emptyList())
+
+    fun testConnection() {
+        if (testingConnection) return
+        val endpoint = baseUrl.trim().trimEnd('/')
+        val parsed = Uri.parse(endpoint)
+        if (parsed.scheme != "https" || parsed.host.isNullOrBlank() || parsed.userInfo != null) {
+            connectionStatus = "Enter a valid HTTPS endpoint first."
+            return
+        }
+        if (apiKey.isBlank()) {
+            connectionStatus = "Add an API key before testing."
+            return
+        }
+        testingConnection = true
+        connectionStatus = "Checking provider…"
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val request = Request.Builder().url("$endpoint/models")
+                        .header("Authorization", "Bearer ${apiKey.trim()}")
+                        .get().build()
+                    client.newCall(request).execute().use { response ->
+                        if (!response.isSuccessful) throw IllegalStateException("Provider returned HTTP ${response.code}. Check endpoint and key.")
+                        val json = JSONObject(response.body?.string().orEmpty())
+                        val models = json.optJSONArray("data")
+                        "Connected successfully${models?.let { " · ${it.length()} models available" } ?: ""}."
+                    }
+                }
+            }
+            connectionStatus = result.getOrElse { "Connection failed: ${it.message ?: "Unknown error"}" }
+            testingConnection = false
+        }
+    }
 
     fun saveSettings(): Boolean {
         val endpoint = baseUrl.trim()
