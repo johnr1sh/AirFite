@@ -315,6 +315,25 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Reads provider responses with a hard cap to prevent oversized bodies from exhausting memory. */
+    private fun readBoundedBody(response: okhttp3.Response, maxBytes: Int): String {
+        val body = response.body ?: return ""
+        if (body.contentLength() > maxBytes) throw IllegalStateException("Provider response exceeds the ${maxBytes / (1024 * 1024)} MB limit.")
+        body.byteStream().use { input ->
+            val output = java.io.ByteArrayOutputStream()
+            val buffer = ByteArray(8192)
+            var total = 0
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                total += count
+                if (total > maxBytes) throw IllegalStateException("Provider response exceeds the ${maxBytes / (1024 * 1024)} MB limit.")
+                output.write(buffer, 0, count)
+            }
+            return output.toString(Charsets.UTF_8.name())
+        }
+    }
+
     companion object {
         const val MAX_CONTEXT_CHARS = 64 * 1024
         const val MAX_MODELS_RESPONSE_BYTES = 2 * 1024 * 1024
