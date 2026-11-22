@@ -36,6 +36,10 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var testingConnection by androidx.compose.runtime.mutableStateOf(false)
         private set
+    var availableModels by androidx.compose.runtime.mutableStateOf(listOf<String>())
+        private set
+    var loadingModels by androidx.compose.runtime.mutableStateOf(false)
+        private set
     var workspaceUri by androidx.compose.runtime.mutableStateOf(prefs.getString("workspaceUri", null)?.let(Uri::parse))
         private set
     var workspaceName by androidx.compose.runtime.mutableStateOf<String?>(null)
@@ -89,6 +93,39 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             if ((role == "user" || role == "assistant") && text.isNotBlank()) ChatMessage(role, text) else null
         }.takeLast(MAX_SAVED_MESSAGES)
     }.getOrDefault(emptyList())
+
+    fun fetchModels() {
+        if (loadingModels) return
+        val endpoint = baseUrl.trim().trimEnd('/')
+        if (Uri.parse(endpoint).scheme != "https" || Uri.parse(endpoint).host.isNullOrBlank()) {
+            connectionStatus = "Enter a valid HTTPS endpoint first."
+            return
+        }
+        if (apiKey.isBlank()) {
+            connectionStatus = "Add an API key before fetching models."
+            return
+        }
+        loadingModels = true
+        connectionStatus = "Loading models…"
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val request = Request.Builder().url("$endpoint/models")
+                        .header("Authorization", "Bearer ${apiKey.trim()}").get().build()
+                    client.newCall(request).execute().use { response ->
+                        if (!response.isSuccessful) throw IllegalStateException("Provider returned HTTP ${response.code}.")
+                        val data = JSONObject(response.body?.string().orEmpty()).optJSONArray("data")
+                            ?: throw IllegalStateException("Provider response did not include a models list.")
+                        (0 until data.length()).mapNotNull { data.optJSONObject(it)?.optString("id")?.takeIf(String::isNotBlank) }
+                            .distinct().sorted()
+                    }
+                }
+            }
+            availableModels = result.getOrElse { emptyList() }
+            connectionStatus = if (result.isSuccess) "Loaded ${availableModels.size} models." else "Model fetch failed: ${result.exceptionOrNull()?.message ?: "Unknown error"}"
+            loadingModels = false
+        }
+    }
 
     fun testConnection() {
         if (testingConnection) return
