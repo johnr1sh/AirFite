@@ -33,7 +33,8 @@ Updated: 2026-11-22
 - [x] HTTPS endpoint and model validation at settings save
 - [x] Multi-turn chat context (bounded to last 12 messages)
 - [x] Keep failed prompts available for retry
-- [ ] Provider presets and endpoint validation
+- [x] Shared HTTPS provider endpoint validation (rejects credentials, query/fragment, malformed hosts, and invalid ports)
+- [ ] Provider presets
 - [x] Bounded provider response bodies and explicit connection/read/call timeouts
 - [ ] Streaming, cancellation, retry/backoff, request limits
 - [x] Persistent recent conversation (40-message cap)
