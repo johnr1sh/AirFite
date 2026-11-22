@@ -80,6 +80,7 @@ private fun summarize(manifest: JSONArray): List<ToolSummary> = (0 until manifes
 @Composable
 fun AgentsScreen(vm: ChatViewModel, modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val activity = LocalActivity.current
     val tools = remember(vm.workspaceUri) { summarize(vm.workspaceToolManifest()) }
     var prompt by rememberSaveable { mutableStateOf("") }
     var records by remember { mutableStateOf(BackgroundTaskStore.list(context)) }
