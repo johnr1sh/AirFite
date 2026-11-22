@@ -160,7 +160,7 @@ private fun FileBrowser(vm: ChatViewModel, onPickFolder: () -> Unit, onOpenPrevi
 private fun FileRow(entry: WorkspaceEntry, showFullPath: Boolean, onClick: () -> Unit) {
     val depth = if (showFullPath) 0 else entry.relativePath.count { it == '/' }.coerceAtMost(8)
     Surface(
-        modifier = Modifier.fillMaxWidth().padding(start = (depth * 12).dp, vertical = 3.dp)
+        modifier = Modifier.fillMaxWidth().padding(start = (depth * 12).dp, top = 3.dp, bottom = 3.dp)
             .clickable(enabled = !entry.isDirectory, onClick = onClick),
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerLow
