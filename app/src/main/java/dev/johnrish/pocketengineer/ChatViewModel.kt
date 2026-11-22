@@ -1,6 +1,7 @@
 package dev.johnrish.pocketengineer
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
@@ -26,10 +27,64 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     var baseUrl by androidx.compose.runtime.mutableStateOf(prefs.getString("baseUrl", "https://api.openai.com/v1") ?: "")
     var apiKey by androidx.compose.runtime.mutableStateOf(prefs.getString("apiKey", "") ?: "")
     var model by androidx.compose.runtime.mutableStateOf(prefs.getString("model", "gpt-4o-mini") ?: "")
+    var workspaceUri by androidx.compose.runtime.mutableStateOf(prefs.getString("workspaceUri", null)?.let(Uri::parse))
+        private set
+    var workspaceName by androidx.compose.runtime.mutableStateOf<String?>(null)
+        private set
+    var workspaceFiles by androidx.compose.runtime.mutableStateOf<List<WorkspaceEntry>>(emptyList())
+        private set
+    var workspaceSearch by androidx.compose.runtime.mutableStateOf("")
+    var selectedFileName by androidx.compose.runtime.mutableStateOf<String?>(null)
+        private set
+    var selectedFileContent by androidx.compose.runtime.mutableStateOf<String?>(null)
+        private set
+    var workspaceError by androidx.compose.runtime.mutableStateOf<String?>(null)
+        private set
+
+    init { refreshWorkspace() }
 
     fun saveSettings() {
         prefs.edit().putString("baseUrl", baseUrl.trim().trimEnd('/')).putString("apiKey", apiKey).putString("model", model).apply()
     }
+
+    fun setWorkspace(uri: Uri) {
+        workspaceUri = uri
+        prefs.edit().putString("workspaceUri", uri.toString()).apply()
+        selectedFileName = null
+        selectedFileContent = null
+        refreshWorkspace()
+    }
+
+    fun refreshWorkspace() {
+        val uri = workspaceUri ?: return
+        runCatching {
+            val root = androidx.documentfile.provider.DocumentFile.fromTreeUri(getApplication(), uri)
+                ?: throw IllegalStateException("Folder permission is unavailable. Select the folder again.")
+            workspaceName = root.name ?: uri.lastPathSegment
+            workspaceFiles = WorkspaceTools(getApplication<Application>().contentResolver, uri).listFiles()
+            workspaceError = null
+        }.onFailure { workspaceError = it.message ?: "Unable to access workspace." }
+    }
+
+    fun openWorkspaceFile(entry: WorkspaceEntry) {
+        if (entry.isDirectory) return
+        runCatching {
+            selectedFileContent = WorkspaceTools(getApplication<Application>().contentResolver, workspaceUri ?: return)
+                .readFile(entry.uri)
+            selectedFileName = entry.relativePath
+            workspaceError = null
+        }.onFailure { workspaceError = it.message ?: "Unable to read file." }
+    }
+
+    fun workspaceToolManifest(): JSONArray = workspaceUri?.let {
+        WorkspaceTools(getApplication<Application>().contentResolver, it).toolManifest()
+    } ?: JSONArray()
+
+    fun callWorkspaceTool(name: String, arguments: JSONObject): JSONObject {
+        val uri = workspaceUri ?: throw IllegalStateException("Select a workspace first.")
+        return WorkspaceTools(getApplication<Application>().contentResolver, uri).callTool(name, arguments)
+    }
+
     fun send() {
         val prompt = input.trim()
         if (prompt.isEmpty() || busy) return
@@ -45,12 +100,13 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             } finally { busy = false }
         }
     }
+
     private fun requestReply(prompt: String): String {
         if (apiKey.isBlank()) return "Add your API key in Settings first."
         val endpoint = baseUrl.trim().trimEnd('/') + "/chat/completions"
         val body = JSONObject().apply {
             put("model", model)
-            put("messages", JSONArray().put(JSONObject().put("role", "system").put("content", "You are Pocket Engineer, a concise mobile coding assistant. Explain your plan before complex code changes."))
+            put("messages", JSONArray().put(JSONObject().put("role", "system").put("content", "You are AirFite, a concise mobile coding assistant. Explain plans before complex work."))
                 .put(JSONObject().put("role", "user").put("content", prompt)))
         }.toString()
         val request = Request.Builder().url(endpoint).header("Authorization", "Bearer $apiKey")
@@ -58,7 +114,9 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         client.newCall(request).execute().use { response ->
             val raw = response.body?.string().orEmpty()
             if (!response.isSuccessful) return "HTTP ${response.code}: ${raw.take(1200)}"
-            return JSONObject(raw).optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")?.optString("content")?.takeIf { it.isNotBlank() } ?: "The provider returned an empty response."
+            val json = JSONObject(raw)
+            return json.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")
+                ?.optString("content")?.takeIf { it.isNotBlank() } ?: "The provider returned an empty response."
         }
     }
 }
