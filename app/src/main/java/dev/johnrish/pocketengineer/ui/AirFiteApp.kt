@@ -2,10 +2,11 @@ package dev.johnrish.pocketengineer.ui
 
 import android.app.Application
 import android.content.Intent
-import androidx.compose.ui.platform.LocalContext
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,8 +14,8 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Folder
@@ -29,6 +30,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -62,9 +66,11 @@ private enum class Destination(val label: String, val outlined: ImageVector, val
 @Composable
 fun AirFiteApp(vm: ChatViewModel = viewModel()) {
     val activity = LocalContext.current as? MainActivity
-    var destination by rememberSaveable { mutableStateOf(
-        runCatching { Destination.valueOf(activity?.intent?.getStringExtra(MainActivity.EXTRA_DESTINATION) ?: "Chat") }.getOrDefault(Destination.Chat)
-    )}
+    var destination by rememberSaveable {
+        mutableStateOf(runCatching {
+            Destination.valueOf(activity?.intent?.getStringExtra(MainActivity.EXTRA_DESTINATION) ?: "Chat")
+        }.getOrDefault(Destination.Chat))
+    }
 
     val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
@@ -80,34 +86,71 @@ fun AirFiteApp(vm: ChatViewModel = viewModel()) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
-                Destination.entries.forEach { item ->
-                    val selected = item == destination
-                    NavigationBarItem(
-                        selected = selected,
-                        onClick = { destination = item },
-                        icon = { Icon(if (selected) item.filled else item.outlined, contentDescription = item.label) },
-                        label = { Text(item.label, maxLines = 1) },
-                        colors = NavigationBarItemDefaults.colors(indicatorColor = MaterialTheme.colorScheme.surfaceContainerHigh)
-                    )
+            Box {
+                androidx.compose.foundation.layout.BoxWithConstraints {
+                    if (maxWidth < 600.dp) {
+                        NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
+                            Destination.entries.forEach { item ->
+                                val selected = item == destination
+                                NavigationBarItem(
+                                    selected = selected,
+                                    onClick = { destination = item },
+                                    icon = { Icon(if (selected) item.filled else item.outlined, contentDescription = item.label) },
+                                    label = { Text(item.label, maxLines = 1) },
+                                    colors = NavigationBarItemDefaults.colors(indicatorColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
     ) { inner ->
-        Column(Modifier.fillMaxSize().padding(inner).consumeWindowInsets(inner)) {
-            TopStrip(vm, onProviderClick = { destination = Destination.Settings })
-            when (destination) {
-                Destination.Chat -> ChatScreen(
-                    vm, onOpenSettings = { destination = Destination.Settings },
-                    onOpenFiles = { destination = Destination.Files }, modifier = Modifier.weight(1f)
-                )
-                Destination.Files -> WorkspaceScreen(
-                    vm, onPickFolder = { folderPicker.launch(null) },
-                    onAttached = { destination = Destination.Chat }, modifier = Modifier.weight(1f)
-                )
-                Destination.Agents -> AgentsScreen(vm, modifier = Modifier.weight(1f))
-                Destination.Settings -> SettingsScreen(vm, modifier = Modifier.weight(1f))
+        androidx.compose.foundation.layout.BoxWithConstraints(
+            Modifier.fillMaxSize().padding(inner).consumeWindowInsets(inner)
+        ) {
+            if (maxWidth >= 600.dp) {
+                Row(Modifier.fillMaxSize()) {
+                    NavigationRail(containerColor = MaterialTheme.colorScheme.surface) {
+                        Destination.entries.forEach { item ->
+                            val selected = item == destination
+                            NavigationRailItem(
+                                selected = selected,
+                                onClick = { destination = item },
+                                icon = { Icon(if (selected) item.filled else item.outlined, contentDescription = item.label) },
+                                label = { Text(item.label) }
+                            )
+                        }
+                    }
+                    Column(Modifier.weight(1f).fillMaxSize()) {
+                        TopStrip(vm, onProviderClick = { destination = Destination.Settings })
+                        ScreenContent(destination, vm, folderPicker, onOpenSettings = { destination = Destination.Settings }, onOpenFiles = { destination = Destination.Files })
+                    }
+                }
+            } else {
+                Column(Modifier.fillMaxSize()) {
+                    TopStrip(vm, onProviderClick = { destination = Destination.Settings })
+                    ScreenContent(destination, vm, folderPicker, onOpenSettings = { destination = Destination.Settings }, onOpenFiles = { destination = Destination.Files })
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun ScreenContent(
+    destination: Destination,
+    vm: ChatViewModel,
+    folderPicker: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenFiles: () -> Unit
+) {
+    AnimatedContent(targetState = destination, modifier = Modifier.fillMaxSize(), label = "AirFite destination") { target ->
+        when (target) {
+            Destination.Chat -> ChatScreen(vm, onOpenSettings, onOpenFiles, Modifier.fillMaxSize())
+            Destination.Files -> WorkspaceScreen(vm, onPickFolder = folderPicker, onAttached = { /* keep current destination */ }, modifier = Modifier.fillMaxSize())
+            Destination.Agents -> AgentsScreen(vm, Modifier.fillMaxSize())
+            Destination.Settings -> SettingsScreen(vm, Modifier.fillMaxSize())
         }
     }
 }
