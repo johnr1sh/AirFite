@@ -86,9 +86,10 @@ fun SettingsScreen(vm: ChatViewModel, modifier: Modifier = Modifier) {
                             TextButton(onClick = { vm.model = vm.availableModels.first() }) { Text("Use first discovered model") }
                         }
                     } else {
-                        CircularProgressIndicator()
+                        if (vm.testingConnection) CircularProgressIndicator()
                         Text(vm.connectionStatus ?: "Checking provider connection…")
                     }
+                    wizardError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                 }
             },
             confirmButton = {
@@ -100,9 +101,10 @@ fun SettingsScreen(vm: ChatViewModel, modifier: Modifier = Modifier) {
                 }) { Text("Continue") }
                 else if (wizardStep == 2) Button(onClick = {
                     if (vm.saveSettings()) {
+                        wizardError = null
                         wizardStep = 3
                         vm.testConnection()
-                    }
+                    } else wizardError = "Review the provider settings and try again."
                 }) { Text("Save & test") }
                 else Button(onClick = { wizardOpen = false }) { Text("Done") }
             },
