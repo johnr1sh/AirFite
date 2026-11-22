@@ -32,7 +32,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateOf\nimport androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -42,6 +42,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import dev.johnrish.pocketengineer.ChatViewModel
+import dev.johnrish.pocketengineer.ProviderEndpoint
 import dev.johnrish.pocketengineer.ui.components.InlineNotice
 import dev.johnrish.pocketengineer.ui.components.KeyValueRow
 import dev.johnrish.pocketengineer.ui.components.ScreenHeader
@@ -52,9 +53,60 @@ fun SettingsScreen(vm: ChatViewModel, modifier: Modifier = Modifier) {
     var showKey by remember { mutableStateOf(false) }
     var saved by remember { mutableStateOf(false) }
     var connectionDialog by remember { mutableStateOf(false) }
+    var wizardOpen by rememberSaveable { mutableStateOf(false) }
+    var wizardStep by rememberSaveable { mutableIntStateOf(0) }
     val context = LocalContext.current
     val version = remember {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "unknown"
+    }
+
+    if (wizardOpen) {
+        AlertDialog(
+            onDismissRequest = { wizardOpen = false },
+            title = { Text(if (wizardStep < 3) "Provider setup · Step ${wizardStep + 1} of 3" else "Testing your provider") },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (wizardStep == 0) {
+                        Text("Where should AirFite send API requests?")
+                        OutlinedTextField(value = vm.baseUrl, onValueChange = { vm.baseUrl = it }, label = { Text("HTTPS endpoint") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        Text("Use your provider's OpenAI-compatible API base URL.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else if (wizardStep == 1) {
+                        Text("Add the API key for this provider.")
+                        OutlinedTextField(value = vm.apiKey, onValueChange = { vm.apiKey = it }, label = { Text("API key") }, singleLine = true, visualTransformation = if (showKey) VisualTransformation.None else PasswordVisualTransformation(), trailingIcon = { IconButton(onClick = { showKey = !showKey }) { Icon(if (showKey) Icons.Filled.VisibilityOff else Icons.Filled.Visibility, contentDescription = if (showKey) "Hide key" else "Show key") } }, modifier = Modifier.fillMaxWidth())
+                        Text("Stored encrypted using Android Keystore.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else if (wizardStep == 2) {
+                        Text("Which model should AirFite use?")
+                        OutlinedTextField(value = vm.model, onValueChange = { vm.model = it }, label = { Text("Model ID") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        if (vm.availableModels.isNotEmpty()) {
+                            TextButton(onClick = { vm.model = vm.availableModels.first() }) { Text("Use first discovered model") }
+                        }
+                    } else {
+                        CircularProgressIndicator()
+                        Text(vm.connectionStatus ?: "Checking provider connection…")
+                    }
+                }
+            },
+            confirmButton = {
+                if (wizardStep < 2) Button(onClick = {
+                    when (wizardStep) {
+                        0 -> if (ProviderEndpoint.normalize(vm.baseUrl) != null) wizardStep = 1 else vm.settingsError = ProviderEndpoint.ERROR_MESSAGE
+                        1 -> if (vm.apiKey.isNotBlank()) wizardStep = 2 else vm.settingsError = "Enter an API key to continue."
+                    }
+                }) { Text("Continue") }
+                else if (wizardStep == 2) Button(onClick = {
+                    if (vm.saveSettings()) {
+                        wizardStep = 3
+                        vm.testConnection()
+                    }
+                }) { Text("Save & test") }
+                else Button(onClick = { wizardOpen = false }) { Text("Done") }
+            },
+            dismissButton = {
+                TextButton(onClick = { if (wizardStep > 0 && wizardStep < 3) wizardStep-- else wizardOpen = false }) {
+                    Text(if (wizardStep in 1..2) "Back" else "Cancel")
+                }
+            }
+        )
     }
 
     if (connectionDialog) {
@@ -69,7 +121,7 @@ fun SettingsScreen(vm: ChatViewModel, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).imePadding()) {
         ScreenHeader(title = "Settings", subtitle = "Your connection, workspace, and privacy")
 
-        ProviderSetupGuide(vm)
+        ProviderSetupGuide(vm, onStart = { wizardStep = 0; wizardOpen = true })
 
         SectionLabel("Connection details")
         Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
