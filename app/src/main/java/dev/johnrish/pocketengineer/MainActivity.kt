@@ -22,6 +22,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -166,11 +167,12 @@ fun SettingsScreen(vm: ChatViewModel, onBack: () -> Unit) {
         Text("Provider settings", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(12.dp))
         OutlinedTextField(vm.baseUrl, { vm.baseUrl = it }, label = { Text("API base URL") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(vm.apiKey, { vm.apiKey = it }, label = { Text("API key") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(vm.apiKey, { vm.apiKey = it }, label = { Text("API key") }, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
         OutlinedTextField(vm.model, { vm.model = it }, label = { Text("Model ID") }, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(8.dp))
-        Text("Compatible with OpenAI-style APIs. Never commit or share API keys.", color = muted)
+        Text("Compatible with OpenAI-style APIs. Keys are encrypted with Android Keystore.", color = muted)
+        vm.settingsError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Spacer(Modifier.height(16.dp))
-        Button(onClick = { vm.saveSettings(); onBack() }, modifier = Modifier.fillMaxWidth()) { Text("Save settings") }
+        Button(onClick = { if (vm.saveSettings()) onBack() }, modifier = Modifier.fillMaxWidth()) { Text("Save settings") }
     }
 }
