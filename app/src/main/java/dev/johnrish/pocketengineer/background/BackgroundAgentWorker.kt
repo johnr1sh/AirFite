@@ -6,10 +6,8 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.content.pm.ServiceInfo
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.work.ForegroundInfo
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import dev.johnrish.pocketengineer.MainActivity
@@ -29,11 +27,9 @@ import java.util.concurrent.TimeUnit
 class BackgroundAgentWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val id = inputData.getString(KEY_TASK_ID) ?: return@withContext Result.failure()
-        val store = BackgroundTaskStore
-        val record = store.list(applicationContext).firstOrNull { it.id == id } ?: return@withContext Result.failure()
-        val task = store.input(applicationContext, id) ?: return@withContext Result.failure()
-        store.update(applicationContext, record.copy(status = "Running", error = ""))
-        setForeground(createForegroundInfo(id))
+        val record = BackgroundTaskStore.list(applicationContext).firstOrNull { it.id == id } ?: return@withContext Result.failure()
+        val task = BackgroundTaskStore.input(applicationContext, id) ?: return@withContext Result.failure()
+        BackgroundTaskStore.update(applicationContext, record.copy(status = "Running", error = ""))
 
         try {
             val endpoint = ProviderEndpoint.normalize(task.baseUrl) ?: throw IllegalArgumentException(ProviderEndpoint.ERROR_MESSAGE)
@@ -61,22 +57,21 @@ class BackgroundAgentWorker(context: Context, params: WorkerParameters) : Corout
                 val answer = JSONObject(raw).optJSONArray("choices")?.optJSONObject(0)
                     ?.optJSONObject("message")?.optString("content")?.takeIf { it.isNotBlank() }
                     ?: throw IllegalStateException("Provider returned an empty response.")
-                val encrypted = SecureKeyStore().encrypt(answer)
-                store.update(applicationContext, record.copy(status = "Completed", encryptedResult = encrypted, error = ""))
+                BackgroundTaskStore.update(applicationContext, record.copy(status = "Completed", encryptedResult = SecureKeyStore().encrypt(answer), error = ""))
                 notifyUser(id, "Background task completed", "Your response is ready in AirFite.")
             }
             Result.success()
         } catch (e: IOException) {
             if (runAttemptCount < MAX_RETRIES) {
-                store.update(applicationContext, record.copy(status = "Retrying", error = "Network interrupted; retry scheduled."))
+                BackgroundTaskStore.update(applicationContext, record.copy(status = "Retrying", error = "Network interrupted; retry scheduled."))
                 Result.retry()
             } else {
-                store.update(applicationContext, record.copy(status = "Failed", error = "Network request failed after retries."))
+                BackgroundTaskStore.update(applicationContext, record.copy(status = "Failed", error = "Network request failed after retries."))
                 notifyUser(id, "Background task failed", "Open AirFite to retry.")
                 Result.failure()
             }
         } catch (e: Exception) {
-            store.update(applicationContext, record.copy(status = "Failed", error = (e.message ?: "Task failed").take(240)))
+            BackgroundTaskStore.update(applicationContext, record.copy(status = "Failed", error = (e.message ?: "Task failed").take(240)))
             notifyUser(id, "Background task failed", "Open AirFite to review the task.")
             Result.failure()
         }
@@ -100,17 +95,10 @@ class BackgroundAgentWorker(context: Context, params: WorkerParameters) : Corout
         }
     }
 
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= 26) {
-            val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, "Background task results", NotificationManager.IMPORTANCE_DEFAULT))
-        }
-    }
-
     private fun notifyUser(taskId: String, title: String, message: String) {
         val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) {
-            manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, "Background tasks", NotificationManager.IMPORTANCE_DEFAULT))
+            manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, "Background task results", NotificationManager.IMPORTANCE_DEFAULT))
         }
         val intent = Intent(applicationContext, MainActivity::class.java)
             .putExtra(MainActivity.EXTRA_DESTINATION, "Agents")
