@@ -38,6 +38,10 @@ class WorkspaceTools(private val context: Context, private val treeUri: Uri) {
     fun readFile(uri: Uri): String {
         val entry = listFiles().firstOrNull { it.uri == uri && !it.isDirectory }
             ?: throw SecurityException("File is outside the selected workspace or no longer exists.")
+        return readEntry(entry)
+    }
+
+    private fun readEntry(entry: WorkspaceEntry): String {
         if (entry.size > MAX_TEXT_BYTES) throw IllegalArgumentException("File exceeds the 512 KB preview limit.")
         context.contentResolver.openInputStream(entry.uri)?.use { stream ->
             val output = ByteArrayOutputStream()
@@ -50,7 +54,9 @@ class WorkspaceTools(private val context: Context, private val treeUri: Uri) {
                 if (total > MAX_TEXT_BYTES) throw IllegalArgumentException("File exceeds the 512 KB preview limit.")
                 output.write(buffer, 0, count)
             }
-            return output.toByteArray().toString(Charsets.UTF_8)
+            val bytes = output.toByteArray()
+            if (bytes.any { it == 0.toByte() }) throw IllegalArgumentException("Binary files cannot be previewed as text.")
+            return bytes.toString(Charsets.UTF_8)
         }
         throw IllegalStateException("Unable to open file.")
     }
@@ -60,7 +66,7 @@ class WorkspaceTools(private val context: Context, private val treeUri: Uri) {
         if (needle.isEmpty()) return emptyList()
         return listFiles().asSequence().filter { !it.isDirectory && it.size <= MAX_TEXT_BYTES }
             .mapNotNull { entry ->
-                runCatching { readFile(entry.uri) }.getOrNull()?.let { content ->
+                runCatching { readEntry(entry) }.getOrNull()?.let { content ->
                     if (content.contains(needle, ignoreCase = true)) entry.relativePath else null
                 }
             }.take(50).toList()
