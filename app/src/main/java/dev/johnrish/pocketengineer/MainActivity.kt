@@ -76,7 +76,10 @@ fun AirFiteApp(vm: ChatViewModel = viewModel()) {
                         }
                     }
                     Spacer(Modifier.height(20.dp))
-                    Text("What are we building?", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("What are we building?", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                        if (vm.messages.isNotEmpty()) TextButton(onClick = { vm.clearConversation() }, enabled = !vm.busy) { Text("New chat") }
+                    }
                     Text("Connect a model, then start with a coding task.", color = muted)
                     Spacer(Modifier.height(16.dp))
                     vm.pendingContextName?.let { attached ->
@@ -92,6 +95,15 @@ fun AirFiteApp(vm: ChatViewModel = viewModel()) {
                     }
                     LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp),
                         contentPadding = PaddingValues(bottom = 12.dp)) {
+                        if (vm.messages.isEmpty()) item {
+                            Surface(color = panel, shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
+                                Column(Modifier.padding(18.dp)) {
+                                    Text("Start with a task", color = accent, fontWeight = FontWeight.Bold)
+                                    Spacer(Modifier.height(8.dp))
+                                    Text("Explain a bug, ask for an implementation plan, or attach a workspace file for focused help.", color = muted)
+                                }
+                            }
+                        }
                         items(vm.messages) { msg -> MessageBubble(msg) }
                         if (vm.busy) item { Text("Thinking…", color = accent, modifier = Modifier.padding(8.dp)) }
                     }
@@ -117,9 +129,12 @@ private fun WorkspaceScreen(vm: ChatViewModel, onPickFolder: () -> Unit, onBack:
             Spacer(Modifier.weight(1f))
             Text("Workspace", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
-        Button(onClick = onPickFolder, modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = onPickFolder, modifier = Modifier.weight(1f)) {
             Icon(Icons.Default.FolderOpen, null); Spacer(Modifier.width(8.dp))
-            Text(if (vm.workspaceUri == null) "Choose project folder" else "Change project folder")
+            Text(if (vm.workspaceUri == null) "Choose project folder" else "Change folder")
+            }
+            OutlinedButton(onClick = { vm.refreshWorkspace() }, enabled = vm.workspaceUri != null) { Text("Refresh") }
         }
         vm.workspaceName?.let { Text(it, color = muted, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(vertical = 8.dp)) }
         if (vm.workspaceUri == null) {
@@ -186,7 +201,7 @@ fun SettingsScreen(vm: ChatViewModel, onBack: () -> Unit) {
         OutlinedTextField(vm.apiKey, { vm.apiKey = it }, label = { Text("API key") }, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
         OutlinedTextField(vm.model, { vm.model = it }, label = { Text("Model ID") }, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(8.dp))
-        Text("Compatible with OpenAI-style APIs. Keys are encrypted with Android Keystore.", color = muted)
+        Text("OpenAI-compatible endpoint. Your key is encrypted with Android Keystore. Leave the key blank to keep the currently saved key.", color = muted)
         vm.settingsError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Spacer(Modifier.height(16.dp))
         Button(onClick = { if (vm.saveSettings()) onBack() }, modifier = Modifier.fillMaxWidth()) { Text("Save settings") }
