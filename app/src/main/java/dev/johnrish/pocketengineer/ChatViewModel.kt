@@ -23,7 +23,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("provider", 0)
     private val secureKeys = SecureKeyStore()
     private val client = OkHttpClient.Builder().callTimeout(90, TimeUnit.SECONDS).build()
-    var messages by androidx.compose.runtime.mutableStateOf(listOf<ChatMessage>())
+    var messages by androidx.compose.runtime.mutableStateOf(loadMessages(prefs))
         private set
     var input by androidx.compose.runtime.mutableStateOf("")
     var busy by androidx.compose.runtime.mutableStateOf(false)
@@ -61,6 +61,31 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     init { refreshWorkspace() }
 
+    private fun persistMessages() {
+        val json = JSONArray().apply {
+            messages.takeLast(MAX_SAVED_MESSAGES).forEach { put(JSONObject().put("role", it.role).put("content", it.content)) }
+        }
+        prefs.edit().putString("chatHistory", json.toString()).apply()
+    }
+
+    fun clearConversation() {
+        if (busy) return
+        messages = emptyList()
+        prefs.edit().remove("chatHistory").apply()
+        input = ""
+        removePendingContext()
+    }
+
+    private fun loadMessages(prefs: android.content.SharedPreferences): List<ChatMessage> = runCatching {
+        val saved = JSONArray(prefs.getString("chatHistory", "[]"))
+        (0 until saved.length()).mapNotNull { index ->
+            val item = saved.optJSONObject(index) ?: return@mapNotNull null
+            val role = item.optString("role")
+            val text = item.optString("content")
+            if ((role == "user" || role == "assistant") && text.isNotBlank()) ChatMessage(role, text) else null
+        }.takeLast(MAX_SAVED_MESSAGES)
+    }.getOrDefault(emptyList())
+
     fun saveSettings(): Boolean {
         val endpoint = baseUrl.trim()
         val parsed = Uri.parse(endpoint)
@@ -73,7 +98,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             return false
         }
         return runCatching {
-            val encrypted = secureKeys.encrypt(apiKey)
+            val encrypted = if (apiKey.isNotBlank()) secureKeys.encrypt(apiKey) else prefs.getString("encryptedApiKey", "").orEmpty()
             prefs.edit().putString("baseUrl", endpoint.trimEnd('/'))
                 .putString("encryptedApiKey", encrypted).remove("apiKey").putString("model", model.trim()).apply()
             baseUrl = endpoint.trimEnd('/')
@@ -158,6 +183,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         val priorMessages = messages.takeLast(MAX_HISTORY_MESSAGES)
         val displayPrompt = if (attachedName != null) "${prompt}\n[Attached file: $attachedName]" else prompt
         messages = messages + ChatMessage("user", displayPrompt)
+        persistMessages()
         removePendingContext()
         busy = true
         viewModelScope.launch {
@@ -166,9 +192,11 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     requestReply(prompt, attachedName, attachedContent, priorMessages)
                 }
                 messages = messages + ChatMessage("assistant", reply)
+                persistMessages()
                 if (input.trim() == prompt) input = ""
             } catch (e: Exception) {
-                messages = messages.dropLast(1) + ChatMessage("assistant", "Request failed: ${e.message ?: "Unknown error"}. Your prompt remains available to retry.")
+                messages = messages + ChatMessage("assistant", "Request failed: ${e.message ?: "Unknown error"}. Your prompt is preserved; retry when ready.")
+                persistMessages()
             } finally { busy = false }
         }
     }
@@ -212,5 +240,6 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     companion object {
         const val MAX_CONTEXT_CHARS = 64 * 1024
         const val MAX_HISTORY_MESSAGES = 12
+        const val MAX_SAVED_MESSAGES = 40
     }
 }
