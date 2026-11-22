@@ -122,12 +122,7 @@ private fun FileBrowser(vm: ChatViewModel, onPickFolder: () -> Unit, onOpenPrevi
                     }
                 }
             )
-            Text(
-                "${filtered.size} of ${vm.workspaceFiles.size} entries" +
-                    if (vm.workspaceFiles.size >= WorkspaceTools.MAX_FILES) " · listing capped at ${WorkspaceTools.MAX_FILES}" else "",
-                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
+            Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 6.dp)) {\n                Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {\n                    Icon(Icons.Outlined.Folder, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))\n                    Spacer(Modifier.width(8.dp))\n                    Text("${filtered.size} visible", style = MaterialTheme.typography.labelMedium)\n                    Spacer(Modifier.weight(1f))\n                    Text("${vm.workspaceFiles.size} total", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)\n                }\n            }
             vm.workspaceError?.let { InlineNotice(text = it, isError = true) }
             LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
                 items(filtered) { entry ->
