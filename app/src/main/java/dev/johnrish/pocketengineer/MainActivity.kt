@@ -200,12 +200,26 @@ fun SettingsScreen(vm: ChatViewModel, onBack: () -> Unit) {
         OutlinedTextField(vm.baseUrl, { vm.baseUrl = it }, label = { Text("API base URL") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(vm.apiKey, { vm.apiKey = it }, label = { Text("API key") }, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
         OutlinedTextField(vm.model, { vm.model = it }, label = { Text("Model ID") }, modifier = Modifier.fillMaxWidth())
+        if (vm.availableModels.isNotEmpty()) {
+            var modelMenuOpen by remember { mutableStateOf(false) }
+            Box(Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = { modelMenuOpen = true }, modifier = Modifier.fillMaxWidth()) { Text("Choose from ${vm.availableModels.size} discovered models") }
+                DropdownMenu(expanded = modelMenuOpen, onDismissRequest = { modelMenuOpen = false }, modifier = Modifier.heightIn(max = 320.dp)) {
+                    vm.availableModels.forEach { modelId ->
+                        DropdownMenuItem(text = { Text(modelId) }, onClick = { vm.model = modelId; modelMenuOpen = false })
+                    }
+                }
+            }
+        }
         Spacer(Modifier.height(8.dp))
         Text("OpenAI-compatible endpoint. Your key is encrypted with Android Keystore. Leave the key blank to keep the currently saved key.", color = muted)
         vm.settingsError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         vm.connectionStatus?.let { Text(it, color = if (it.startsWith("Connected")) accent else MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
         Spacer(Modifier.height(12.dp))
-        OutlinedButton(onClick = { vm.testConnection() }, enabled = !vm.testingConnection, modifier = Modifier.fillMaxWidth()) { Text(if (vm.testingConnection) "Testing connection…" else "Test provider connection") }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { vm.testConnection() }, enabled = !vm.testingConnection, modifier = Modifier.weight(1f)) { Text(if (vm.testingConnection) "Testing…" else "Test connection") }
+            OutlinedButton(onClick = { vm.fetchModels() }, enabled = !vm.loadingModels, modifier = Modifier.weight(1f)) { Text(if (vm.loadingModels) "Loading…" else "Fetch models") }
+        }
         Spacer(Modifier.height(8.dp))
         Button(onClick = { if (vm.saveSettings()) onBack() }, modifier = Modifier.fillMaxWidth()) { Text("Save settings") }
     }
