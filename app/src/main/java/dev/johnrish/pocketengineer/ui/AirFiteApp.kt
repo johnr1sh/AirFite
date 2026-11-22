@@ -27,6 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -74,14 +75,14 @@ fun AirFiteApp(vm: ChatViewModel = viewModel()) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            NavigationBar {
+            NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
                 Destination.entries.forEach { item ->
                     val selected = item == destination
                     NavigationBarItem(
                         selected = selected,
                         onClick = { destination = item },
                         icon = { Icon(if (selected) item.filled else item.outlined, contentDescription = item.label) },
-                        label = { Text(item.label) }
+                        label = { Text(item.label, maxLines = 1) },\n                        colors = NavigationBarItemDefaults.colors(indicatorColor = MaterialTheme.colorScheme.surfaceContainerHigh)
                     )
                 }
             }
@@ -109,7 +110,7 @@ fun AirFiteApp(vm: ChatViewModel = viewModel()) {
 @Composable
 private fun TopStrip(vm: ChatViewModel, onProviderClick: () -> Unit) {
     val ready = vm.apiKey.isNotBlank()
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         AirFiteWordmark(Modifier.weight(1f))
         Row(
             Modifier.clip(MaterialTheme.shapes.small).clickable(onClick = onProviderClick).padding(horizontal = 8.dp, vertical = 6.dp),
