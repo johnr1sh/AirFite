@@ -35,7 +35,20 @@ object BackgroundTaskManager {
         return id
     }
 
-    fun retry(context: Context, id: String) {\n        val record = BackgroundTaskStore.list(context).firstOrNull { it.id == id } ?: throw IllegalArgumentException("Task not found.")\n        require(BackgroundTaskStore.input(context, id) != null) { "Encrypted task input is no longer available." }\n        BackgroundTaskStore.update(context, record.copy(status = "Queued", error = "", encryptedResult = ""))\n        val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()\n        val request = OneTimeWorkRequestBuilder<BackgroundAgentWorker>()\n            .setInputData(workDataOf(BackgroundAgentWorker.KEY_TASK_ID to id))\n            .setConstraints(constraints)\n            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 20, TimeUnit.SECONDS)\n            .addTag(TAG).addTag(id).build()\n        WorkManager.getInstance(context).enqueueUniqueWork("airfite_task_$id", ExistingWorkPolicy.REPLACE, request)\n    }\n\n    fun cancel(context: Context, id: String) {
+    fun retry(context: Context, id: String) {
+        val record = BackgroundTaskStore.list(context).firstOrNull { it.id == id } ?: throw IllegalArgumentException("Task not found.")
+        require(BackgroundTaskStore.input(context, id) != null) { "Encrypted task input is no longer available." }
+        BackgroundTaskStore.update(context, record.copy(status = "Queued", error = "", encryptedResult = ""))
+        val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+        val request = OneTimeWorkRequestBuilder<BackgroundAgentWorker>()
+            .setInputData(workDataOf(BackgroundAgentWorker.KEY_TASK_ID to id))
+            .setConstraints(constraints)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 20, TimeUnit.SECONDS)
+            .addTag(TAG).addTag(id).build()
+        WorkManager.getInstance(context).enqueueUniqueWork("airfite_task_$id", ExistingWorkPolicy.REPLACE, request)
+    }
+
+    fun cancel(context: Context, id: String) {
         WorkManager.getInstance(context).cancelUniqueWork("airfite_task_$id")
         BackgroundTaskStore.delete(context, id)
     }
