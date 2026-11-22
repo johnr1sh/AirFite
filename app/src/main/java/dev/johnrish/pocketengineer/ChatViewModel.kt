@@ -29,6 +29,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     var baseUrl by androidx.compose.runtime.mutableStateOf(prefs.getString("baseUrl", "https://api.openai.com/v1") ?: "")
     var apiKey by androidx.compose.runtime.mutableStateOf(loadApiKey(app))
     var model by androidx.compose.runtime.mutableStateOf(prefs.getString("model", "gpt-4o-mini") ?: "")
+    var settingsError by androidx.compose.runtime.mutableStateOf<String?>(null)
+        private set
     var workspaceUri by androidx.compose.runtime.mutableStateOf(prefs.getString("workspaceUri", null)?.let(Uri::parse))
         private set
     var workspaceName by androidx.compose.runtime.mutableStateOf<String?>(null)
@@ -46,7 +48,6 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     private fun loadApiKey(app: Application): String {
         val stored = prefs.getString("encryptedApiKey", "").orEmpty()
         if (stored.isNotBlank()) return runCatching { secureKeys.decrypt(stored) }.getOrDefault("")
-        // Migrate the previous plaintext preference on first load.
         val legacy = prefs.getString("apiKey", "").orEmpty()
         if (legacy.isNotBlank()) runCatching {
             prefs.edit().putString("encryptedApiKey", secureKeys.encrypt(legacy)).remove("apiKey").apply()
@@ -56,10 +57,13 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     init { refreshWorkspace() }
 
-    fun saveSettings() {
-        val encrypted = secureKeys.encrypt(apiKey)
-        prefs.edit().putString("baseUrl", baseUrl.trim().trimEnd('/'))
-            .putString("encryptedApiKey", encrypted).remove("apiKey").putString("model", model).apply()
+    fun saveSettings(): Boolean {
+        return runCatching {
+            val encrypted = secureKeys.encrypt(apiKey)
+            prefs.edit().putString("baseUrl", baseUrl.trim().trimEnd('/'))
+                .putString("encryptedApiKey", encrypted).remove("apiKey").putString("model", model).apply()
+            settingsError = null
+        }.onFailure { settingsError = it.message ?: "Unable to securely save settings." }.isSuccess
     }
 
     fun setWorkspace(uri: Uri) {
