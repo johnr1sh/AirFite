@@ -1,6 +1,12 @@
 # Development log
 
-Newest first. Entries state only what was verified; see ROADMAP.md for what remains.
+Newest first.
+
+## 2026-11-23 (chat UX refinement)
+- Reworked the empty-chat experience into a more focused welcome, readable quick-start cards, and an explicit workspace-context affordance.
+- Refined the message composer into a rounded, bordered container with better attachment/send affordances and clearer placeholder copy.
+- Softened the app-wide shape system to give cards and fields more modern, comfortable corner radii.
+- UI changes are not device-rendered in this environment; Android CI is the verification source. Entries state only what was verified; see ROADMAP.md for what remains.
 
 ## 2026-11-22 (UI redesign)
 - Replaced the single-file UI with a design system and four screens: `ui/theme`, `ui/components` (logo mark, notices, empty states), `ui/chat`, `ui/workspace`, `ui/agents`, `ui/settings`, shell in `ui/AirFiteApp.kt`.
