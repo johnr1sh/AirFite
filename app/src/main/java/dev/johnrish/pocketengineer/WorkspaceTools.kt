@@ -16,6 +16,7 @@ class WorkspaceTools(private val context: Context, private val treeUri: Uri) {
         const val MAX_DEPTH = 8
         const val MAX_TEXT_BYTES = 512 * 1024
         const val MAX_SEARCH_FILES = 100
+        const val MAX_SEARCH_FILE_BYTES = 32 * 1024
         const val MAX_SEARCH_TOTAL_BYTES = 2 * 1024 * 1024
     }
 
@@ -43,8 +44,8 @@ class WorkspaceTools(private val context: Context, private val treeUri: Uri) {
         return readEntry(entry)
     }
 
-    private fun readEntry(entry: WorkspaceEntry): String {
-        if (entry.size > MAX_TEXT_BYTES) throw IllegalArgumentException("File exceeds the 512 KB preview limit.")
+    private fun readEntry(entry: WorkspaceEntry, maxBytes: Int = MAX_TEXT_BYTES): String {
+        if (entry.size > maxBytes) throw IllegalArgumentException("File exceeds the ${maxBytes / 1024} KB read limit.")
         context.contentResolver.openInputStream(entry.uri)?.use { stream ->
             val output = ByteArrayOutputStream()
             val buffer = ByteArray(8192)
@@ -53,7 +54,7 @@ class WorkspaceTools(private val context: Context, private val treeUri: Uri) {
                 val count = stream.read(buffer)
                 if (count < 0) break
                 total += count
-                if (total > MAX_TEXT_BYTES) throw IllegalArgumentException("File exceeds the 512 KB preview limit.")
+                if (total > maxBytes) throw IllegalArgumentException("File exceeds the ${maxBytes / 1024} KB read limit.")
                 output.write(buffer, 0, count)
             }
             val bytes = output.toByteArray()
@@ -70,11 +71,11 @@ class WorkspaceTools(private val context: Context, private val treeUri: Uri) {
         var inspectedFiles = 0
         val matches = mutableListOf<String>()
         for (entry in listFiles()) {
-            if (entry.isDirectory || entry.size > MAX_TEXT_BYTES) continue
+            if (entry.isDirectory || entry.size > MAX_SEARCH_FILE_BYTES) continue
             if (inspectedFiles >= MAX_SEARCH_FILES || inspectedBytes >= MAX_SEARCH_TOTAL_BYTES) break
             inspectedFiles++
             inspectedBytes += entry.size.coerceAtLeast(0)
-            val content = runCatching { readEntry(entry) }.getOrNull() ?: continue
+            val content = runCatching { readEntry(entry, MAX_SEARCH_FILE_BYTES) }.getOrNull() ?: continue
             if (content.contains(needle, ignoreCase = true)) {
                 matches.add(entry.relativePath)
                 if (matches.size >= 50) break
