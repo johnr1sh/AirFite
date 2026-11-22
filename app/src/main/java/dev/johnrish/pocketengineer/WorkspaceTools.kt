@@ -15,6 +15,8 @@ class WorkspaceTools(private val context: Context, private val treeUri: Uri) {
         const val MAX_FILES = 500
         const val MAX_DEPTH = 8
         const val MAX_TEXT_BYTES = 512 * 1024
+        const val MAX_SEARCH_FILES = 100
+        const val MAX_SEARCH_TOTAL_BYTES = 2 * 1024 * 1024
     }
 
     fun listFiles(): List<WorkspaceEntry> {
@@ -64,12 +66,21 @@ class WorkspaceTools(private val context: Context, private val treeUri: Uri) {
     fun search(query: String): List<String> {
         val needle = query.trim()
         if (needle.isEmpty()) return emptyList()
-        return listFiles().asSequence().filter { !it.isDirectory && it.size <= MAX_TEXT_BYTES }
-            .mapNotNull { entry ->
-                runCatching { readEntry(entry) }.getOrNull()?.let { content ->
-                    if (content.contains(needle, ignoreCase = true)) entry.relativePath else null
-                }
-            }.take(50).toList()
+        var inspectedBytes = 0L
+        var inspectedFiles = 0
+        val matches = mutableListOf<String>()
+        for (entry in listFiles()) {
+            if (entry.isDirectory || entry.size > MAX_TEXT_BYTES) continue
+            if (inspectedFiles >= MAX_SEARCH_FILES || inspectedBytes >= MAX_SEARCH_TOTAL_BYTES) break
+            inspectedFiles++
+            inspectedBytes += entry.size.coerceAtLeast(0)
+            val content = runCatching { readEntry(entry) }.getOrNull() ?: continue
+            if (content.contains(needle, ignoreCase = true)) {
+                matches.add(entry.relativePath)
+                if (matches.size >= 50) break
+            }
+        }
+        return matches
     }
 
     /** MCP-style tool descriptors; mutating tools are intentionally withheld. */
