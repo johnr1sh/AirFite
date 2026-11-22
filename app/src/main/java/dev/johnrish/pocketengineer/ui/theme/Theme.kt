@@ -60,11 +60,11 @@ private val AirFiteTypography = base.copy(
 
 /** Tight radii on purpose: this is a tool, not a toy. */
 private val AirFiteShapes = Shapes(
-    extraSmall = RoundedCornerShape(2.dp),
-    small = RoundedCornerShape(4.dp),
-    medium = RoundedCornerShape(6.dp),
-    large = RoundedCornerShape(8.dp),
-    extraLarge = RoundedCornerShape(10.dp)
+    extraSmall = RoundedCornerShape(4.dp),
+    small = RoundedCornerShape(8.dp),
+    medium = RoundedCornerShape(12.dp),
+    large = RoundedCornerShape(16.dp),
+    extraLarge = RoundedCornerShape(24.dp)
 )
 
 val CodeTextStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp, lineHeight = 18.sp)
