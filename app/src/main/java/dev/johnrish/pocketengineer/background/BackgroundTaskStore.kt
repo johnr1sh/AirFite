@@ -74,7 +74,7 @@ object BackgroundTaskStore {
             }
         }
         val edit = prefs(context).edit().putString(RECORDS, json.toString())
-        if (record.status == "Completed" || record.status == "Failed" || record.status == "Cancelled") edit.remove(INPUT_PREFIX + record.id)
+        if (record.status == "Completed" || record.status == "Cancelled") edit.remove(INPUT_PREFIX + record.id)
         edit.apply()
     }
 
