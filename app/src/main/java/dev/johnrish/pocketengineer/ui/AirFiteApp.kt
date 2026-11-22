@@ -61,7 +61,10 @@ private enum class Destination(val label: String, val outlined: ImageVector, val
 
 @Composable
 fun AirFiteApp(vm: ChatViewModel = viewModel()) {
-    val activity = LocalContext.current as? MainActivity\n    var destination by rememberSaveable { mutableStateOf(\n        runCatching { Destination.valueOf(activity?.intent?.getStringExtra(MainActivity.EXTRA_DESTINATION) ?: "Chat") }.getOrDefault(Destination.Chat)\n    )}
+    val activity = LocalContext.current as? MainActivity
+    var destination by rememberSaveable { mutableStateOf(
+        runCatching { Destination.valueOf(activity?.intent?.getStringExtra(MainActivity.EXTRA_DESTINATION) ?: "Chat") }.getOrDefault(Destination.Chat)
+    )}
 
     val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
