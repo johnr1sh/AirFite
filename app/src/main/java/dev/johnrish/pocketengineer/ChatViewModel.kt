@@ -354,6 +354,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 if (round == MAX_AGENT_TOOL_ROUNDS) throw IllegalStateException("Agent tool-call limit reached. Please narrow your request.")
                 messages.put(message)
+                if (calls.length() > MAX_AGENT_TOOL_CALLS_PER_ROUND) throw IllegalStateException("Agent requested too many tools in one round.")
                 for (i in 0 until calls.length()) {
                     val call = calls.optJSONObject(i) ?: continue
                     val function = call.optJSONObject("function") ?: continue
@@ -361,7 +362,10 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     val args = runCatching { JSONObject(function.optString("arguments", "{}")) }.getOrElse { JSONObject() }
                     val result = runCatching { workspaceTools?.callTool(name, args) ?: JSONObject().put("error", "No workspace is selected.") }
                         .getOrElse { JSONObject().put("error", it.message ?: "Tool execution failed.") }
-                    messages.put(JSONObject().put("role", "tool").put("tool_call_id", call.optString("id")).put("content", result.toString()))
+                    val toolOutput = result.toString().let { output ->
+                        if (output.length > MAX_AGENT_TOOL_RESULT_CHARS) output.take(MAX_AGENT_TOOL_RESULT_CHARS) + "\n[Tool output truncated for safety.]" else output
+                    }
+                    messages.put(JSONObject().put("role", "tool").put("tool_call_id", call.optString("id")).put("content", toolOutput))
                 }
             }
         }
@@ -391,7 +395,10 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         const val MAX_CONTEXT_CHARS = 64 * 1024
         const val MAX_MODELS_RESPONSE_BYTES = 2 * 1024 * 1024
         const val MAX_CHAT_RESPONSE_BYTES = 4 * 1024 * 1024
-        const val MAX_HISTORY_MESSAGES = 12\n        const val MAX_AGENT_TOOL_ROUNDS = 4
+        const val MAX_HISTORY_MESSAGES = 12
+        const val MAX_AGENT_TOOL_ROUNDS = 4
+        const val MAX_AGENT_TOOL_CALLS_PER_ROUND = 8
+        const val MAX_AGENT_TOOL_RESULT_CHARS = 80 * 1024
         const val MAX_SAVED_MESSAGES = 40
     }
 }
