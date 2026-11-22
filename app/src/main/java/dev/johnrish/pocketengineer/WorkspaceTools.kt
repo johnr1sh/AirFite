@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 
 /** SAF-scoped workspace tools. Transport-neutral so it can later be exposed over MCP. */
 data class WorkspaceEntry(val name: String, val uri: Uri, val isDirectory: Boolean, val size: Long, val relativePath: String)
@@ -39,9 +40,17 @@ class WorkspaceTools(private val resolver: ContentResolver, private val treeUri:
             ?: throw SecurityException("File is outside the selected workspace or no longer exists.")
         if (entry.size > MAX_TEXT_BYTES) throw IllegalArgumentException("File exceeds the 512 KB preview limit.")
         resolver.openInputStream(entry.uri)?.use { stream ->
-            val bytes = stream.readNBytes(MAX_TEXT_BYTES + 1)
-            if (bytes.size > MAX_TEXT_BYTES) throw IllegalArgumentException("File exceeds the 512 KB preview limit.")
-            return bytes.toString(Charsets.UTF_8)
+            val output = ByteArrayOutputStream()
+            val buffer = ByteArray(8192)
+            var total = 0
+            while (true) {
+                val count = stream.read(buffer)
+                if (count < 0) break
+                total += count
+                if (total > MAX_TEXT_BYTES) throw IllegalArgumentException("File exceeds the 512 KB preview limit.")
+                output.write(buffer, 0, count)
+            }
+            return output.toByteArray().toString(Charsets.UTF_8)
         }
         throw IllegalStateException("Unable to open file.")
     }
