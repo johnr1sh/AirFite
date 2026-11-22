@@ -50,7 +50,8 @@ import dev.johnrish.pocketengineer.ui.components.SectionLabel
 @Composable
 fun SettingsScreen(vm: ChatViewModel, modifier: Modifier = Modifier) {
     var showKey by remember { mutableStateOf(false) }
-    var saved by remember { mutableStateOf(false) }\n    var connectionDialog by remember { mutableStateOf(false) }
+    var saved by remember { mutableStateOf(false) }
+    var connectionDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val version = remember {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "unknown"
