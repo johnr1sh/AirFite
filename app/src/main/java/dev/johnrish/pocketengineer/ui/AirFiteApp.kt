@@ -43,7 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
+import androidx.activity.compose.LocalActivity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -65,7 +65,7 @@ private enum class Destination(val label: String, val outlined: ImageVector, val
 
 @Composable
 fun AirFiteApp(vm: ChatViewModel = viewModel()) {
-    val activity = LocalContext.current as? MainActivity
+    val activity = LocalActivity.current
     var destination by rememberSaveable {
         mutableStateOf(runCatching {
             Destination.valueOf(activity?.intent?.getStringExtra(MainActivity.EXTRA_DESTINATION) ?: "Chat")
