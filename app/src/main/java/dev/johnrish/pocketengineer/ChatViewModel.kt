@@ -22,7 +22,11 @@ data class ChatMessage(val role: String, val content: String)
 class ChatViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("provider", 0)
     private val secureKeys = SecureKeyStore()
-    private val client = OkHttpClient.Builder().callTimeout(90, TimeUnit.SECONDS).build()
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .callTimeout(90, TimeUnit.SECONDS)
+        .build()
     var messages by androidx.compose.runtime.mutableStateOf(loadMessages(prefs))
         private set
     var input by androidx.compose.runtime.mutableStateOf("")
@@ -114,7 +118,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                         .header("Authorization", "Bearer ${apiKey.trim()}").get().build()
                     client.newCall(request).execute().use { response ->
                         if (!response.isSuccessful) throw IllegalStateException("Provider returned HTTP ${response.code}.")
-                        val data = JSONObject(response.body?.string().orEmpty()).optJSONArray("data")
+                        val data = JSONObject(readBoundedBody(response, MAX_MODELS_RESPONSE_BYTES)).optJSONArray("data")
                             ?: throw IllegalStateException("Provider response did not include a models list.")
                         (0 until data.length()).mapNotNull { data.optJSONObject(it)?.optString("id")?.takeIf(String::isNotBlank) }
                             .distinct().sorted()
@@ -149,7 +153,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                         .get().build()
                     client.newCall(request).execute().use { response ->
                         if (!response.isSuccessful) throw IllegalStateException("Provider returned HTTP ${response.code}. Check endpoint and key.")
-                        val json = JSONObject(response.body?.string().orEmpty())
+                        val json = JSONObject(readBoundedBody(response, MAX_MODELS_RESPONSE_BYTES))
                         val models = json.optJSONArray("data")
                         "Connected successfully${models?.let { " · ${it.length()} models available" } ?: ""}."
                     }
@@ -299,7 +303,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         val request = Request.Builder().url(endpoint).header("Authorization", "Bearer $apiKey")
             .header("Content-Type", "application/json").post(body.toRequestBody("application/json".toMediaType())).build()
         client.newCall(request).execute().use { response ->
-            val raw = response.body?.string().orEmpty()
+            val raw = readBoundedBody(response, MAX_CHAT_RESPONSE_BYTES)
             if (!response.isSuccessful) {
                 val providerMessage = runCatching { JSONObject(raw).optJSONObject("error")?.optString("message") }.getOrNull()
                 throw IllegalStateException("HTTP ${response.code}${providerMessage?.takeIf { it.isNotBlank() }?.let { ": ${it.take(400)}" } ?: ""}")
@@ -313,6 +317,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     companion object {
         const val MAX_CONTEXT_CHARS = 64 * 1024
+        const val MAX_MODELS_RESPONSE_BYTES = 2 * 1024 * 1024
+        const val MAX_CHAT_RESPONSE_BYTES = 4 * 1024 * 1024
         const val MAX_HISTORY_MESSAGES = 12
         const val MAX_SAVED_MESSAGES = 40
     }
