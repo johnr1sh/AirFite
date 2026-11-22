@@ -1,5 +1,8 @@
 # AirFite
 
+> **Proprietary software.** Copyright © 2026 John Rish Ladica. All rights reserved. This public repository is provided for viewing and GitHub forking only; no license is granted to copy, modify, redistribute, or use this software outside the rights provided by GitHub's platform terms and applicable law. Written permission is required for other use. See [LICENSE](LICENSE).
+
+
 AirFite is an Android-first coding assistant with a user-authorized local workspace.
 
 ## Current capabilities
