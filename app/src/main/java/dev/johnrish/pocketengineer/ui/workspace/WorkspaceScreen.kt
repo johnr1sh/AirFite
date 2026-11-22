@@ -75,16 +75,6 @@ fun WorkspaceScreen(
     modifier: Modifier = Modifier
 ) {
     var previewOpen by rememberSaveable { mutableStateOf(false) }
-    var confirmWorkspaceChange by rememberSaveable { mutableStateOf(false) }
-    if (confirmWorkspaceChange) {
-        AlertDialog(
-            onDismissRequest = { confirmWorkspaceChange = false },
-            title = { Text("Change workspace?") },
-            text = { Text("Choose another folder? Your current workspace stays available until you select a new one.") },
-            confirmButton = { Button(onClick = { confirmWorkspaceChange = false; onPickFolder() }) { Text("Choose folder") } },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmWorkspaceChange = false }) { Text("Cancel") } }
-        )
-    }
     if (previewOpen && vm.selectedFileName != null) {
         FilePreview(
             vm = vm,
@@ -99,6 +89,16 @@ fun WorkspaceScreen(
 
 @Composable
 private fun FileBrowser(vm: ChatViewModel, onPickFolder: () -> Unit, onOpenPreview: () -> Unit, modifier: Modifier) {
+    var confirmWorkspaceChange by rememberSaveable { mutableStateOf(false) }
+    if (confirmWorkspaceChange) {
+        AlertDialog(
+            onDismissRequest = { confirmWorkspaceChange = false },
+            title = { Text("Change workspace?") },
+            text = { Text("Choose another folder? Your current workspace stays available until you select a new one.") },
+            confirmButton = { Button(onClick = { confirmWorkspaceChange = false; onPickFolder() }) { Text("Choose folder") } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmWorkspaceChange = false }) { Text("Cancel") } }
+        )
+    }
     Column(modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         ScreenHeader(title = "Files", subtitle = vm.workspaceName ?: "No workspace selected") {
             if (vm.workspaceUri != null) {
