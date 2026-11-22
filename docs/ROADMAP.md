@@ -18,6 +18,9 @@ Updated: 2026-11-22
 
 ## Milestone 2 — Reliable provider and sessions
 - [x] Keystore-backed encrypted API-key storage
+- [x] HTTPS endpoint and model validation at settings save
+- [x] Multi-turn chat context (bounded to last 12 messages)
+- [x] Keep failed prompts available for retry
 - [ ] Provider presets and endpoint validation
 - [ ] Streaming, cancellation, retry/backoff, request limits
 - [ ] Persistent conversation sessions and interrupted-task recovery
