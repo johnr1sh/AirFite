@@ -3,6 +3,7 @@ package dev.johnrish.pocketengineer
 import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
+import dev.johnrish.pocketengineer.workspace.WorkspacePath
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
@@ -109,11 +110,11 @@ class WorkspaceTools(private val context: Context, private val treeUri: Uri) {
             listFiles().forEach { put(JSONObject().put("path", it.relativePath).put("directory", it.isDirectory).put("size", it.size)) }
         })
         "workspace.read_file" -> {
-            val path = arguments.optString("path").trim()
-            require(path.isNotEmpty() && !path.startsWith("/") && !path.split('/').any { it == ".." }) { "Invalid relative path." }
+            val path = WorkspacePath.parse(arguments.optString("path")).value
+            // Exact match against the SAF listing is the actual access check; parse() only rejects unsafe syntax.
             val entry = listFiles().firstOrNull { it.relativePath == path && !it.isDirectory }
                 ?: throw SecurityException("Path is not within the selected workspace.")
-            JSONObject().put("path", path).put("content", readFile(entry.uri))
+            JSONObject().put("path", path).put("content", readEntry(entry))
         }
         "workspace.search_files" -> JSONObject().put("matches", JSONArray(search(arguments.optString("query"))))
         else -> throw IllegalArgumentException("Unknown tool: $name")
