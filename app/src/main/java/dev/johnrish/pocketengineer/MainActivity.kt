@@ -10,6 +10,9 @@ import dev.johnrish.pocketengineer.ui.AirFiteApp
 import dev.johnrish.pocketengineer.ui.theme.AirFiteTheme
 
 class MainActivity : ComponentActivity() {
+    companion object {
+        const val EXTRA_DESTINATION = "airfite_destination"
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // The theme is dark-only, so keep light system-bar icons regardless of the device setting.
