@@ -46,7 +46,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.work.WorkManager
-import dev.johnrish.pocketengineer.ChatViewModel
+import dev.johnrish.pocketengineer.ChatViewModel\nimport dev.johnrish.pocketengineer.MainActivity
 import dev.johnrish.pocketengineer.SecureKeyStore
 import dev.johnrish.pocketengineer.agent.CapabilityTier
 import dev.johnrish.pocketengineer.background.BackgroundAgentWorker
@@ -81,7 +81,7 @@ fun AgentsScreen(vm: ChatViewModel, modifier: Modifier = Modifier) {
     val tools = remember(vm.workspaceUri) { summarize(vm.workspaceToolManifest()) }
     var prompt by rememberSaveable { mutableStateOf("") }
     var records by remember { mutableStateOf(BackgroundTaskStore.list(context)) }
-    var selected by remember { mutableStateOf<BackgroundTaskRecord?>(null) }
+    val initialTaskId = (context as? MainActivity)?.intent?.getStringExtra(BackgroundAgentWorker.EXTRA_TASK_ID)\n    var selected by remember { mutableStateOf(BackgroundTaskStore.list(context).firstOrNull { it.id == initialTaskId }) }
     var taskResult by remember { mutableStateOf("") }
     var taskError by remember { mutableStateOf<String?>(null) }
     var submitting by remember { mutableStateOf(false) }
