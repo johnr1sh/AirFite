@@ -100,7 +100,8 @@ class BackgroundAgentWorker(context: Context, params: WorkerParameters) : Corout
         }
     }
 
-    @SuppressLint("MissingPermission")\n    private fun notifyUser(taskId: String, title: String, message: String) {
+    @SuppressLint("MissingPermission")
+    private fun notifyUser(taskId: String, title: String, message: String) {
         val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) {
             manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, "Background task results", NotificationManager.IMPORTANCE_DEFAULT))
