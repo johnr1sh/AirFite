@@ -203,7 +203,10 @@ fun SettingsScreen(vm: ChatViewModel, onBack: () -> Unit) {
         Spacer(Modifier.height(8.dp))
         Text("OpenAI-compatible endpoint. Your key is encrypted with Android Keystore. Leave the key blank to keep the currently saved key.", color = muted)
         vm.settingsError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        Spacer(Modifier.height(16.dp))
+        vm.connectionStatus?.let { Text(it, color = if (it.startsWith("Connected")) accent else MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
+        Spacer(Modifier.height(12.dp))
+        OutlinedButton(onClick = { vm.testConnection() }, enabled = !vm.testingConnection, modifier = Modifier.fillMaxWidth()) { Text(if (vm.testingConnection) "Testing connection…" else "Test provider connection") }
+        Spacer(Modifier.height(8.dp))
         Button(onClick = { if (vm.saveSettings()) onBack() }, modifier = Modifier.fillMaxWidth()) { Text("Save settings") }
     }
 }
