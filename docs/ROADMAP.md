@@ -34,6 +34,7 @@ Updated: 2026-11-22
 - [x] Multi-turn chat context (bounded to last 12 messages)
 - [x] Keep failed prompts available for retry
 - [ ] Provider presets and endpoint validation
+- [x] Bounded provider response bodies and explicit connection/read/call timeouts
 - [ ] Streaming, cancellation, retry/backoff, request limits
 - [x] Persistent recent conversation (40-message cap)
 - [ ] Multi-session conversation management and interrupted-task recovery
