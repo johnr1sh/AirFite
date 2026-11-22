@@ -49,7 +49,7 @@ object BackgroundTaskStore {
             .put("baseUrl", input.baseUrl)
             .put("model", input.model)
         prefs(context).edit().putString(INPUT_PREFIX + id, storedInput.toString()).apply()
-        update(context, BackgroundTaskRecord(id, "Queued", System.currentTimeMillis()))
+        update(context, BackgroundTaskRecord(id, "Queued", System.currentTimeMillis(), encryptedTitle = dev.johnrish.pocketengineer.SecureKeyStore().encrypt(input.prompt.take(72))))
     }
 
     fun input(context: Context, id: String): BackgroundTaskInput? = runCatching {
@@ -67,7 +67,7 @@ object BackgroundTaskStore {
         val json = JSONArray().apply {
             (current + record).sortedByDescending { it.createdAt }.take(20).forEach {
                 put(JSONObject().put("id", it.id).put("status", it.status).put("createdAt", it.createdAt)
-                    .put("result", it.encryptedResult).put("error", it.error))
+                    .put("result", it.encryptedResult).put("error", it.error).put("title", it.encryptedTitle))
             }
         }
         val edit = prefs(context).edit().putString(RECORDS, json.toString())
@@ -79,7 +79,7 @@ object BackgroundTaskStore {
         val records = JSONArray().apply {
             list(context).filterNot { it.id == id }.forEach {
                 put(JSONObject().put("id", it.id).put("status", it.status).put("createdAt", it.createdAt)
-                    .put("result", it.encryptedResult).put("error", it.error))
+                    .put("result", it.encryptedResult).put("error", it.error).put("title", it.encryptedTitle))
             }
         }
         prefs(context).edit().putString(RECORDS, records.toString()).remove(INPUT_PREFIX + id).apply()
