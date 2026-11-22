@@ -80,7 +80,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             val root = androidx.documentfile.provider.DocumentFile.fromTreeUri(getApplication(), uri)
                 ?: throw IllegalStateException("Folder permission is unavailable. Select the folder again.")
             workspaceName = root.name ?: uri.lastPathSegment
-            workspaceFiles = WorkspaceTools(getApplication<Application>().contentResolver, uri).listFiles()
+            workspaceFiles = WorkspaceTools(getApplication<Application>(), uri).listFiles()
             workspaceError = null
         }.onFailure { workspaceError = it.message ?: "Unable to access workspace." }
     }
@@ -88,7 +88,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun openWorkspaceFile(entry: WorkspaceEntry) {
         if (entry.isDirectory) return
         runCatching {
-            selectedFileContent = WorkspaceTools(getApplication<Application>().contentResolver, workspaceUri ?: return)
+            selectedFileContent = WorkspaceTools(getApplication<Application>(), workspaceUri ?: return)
                 .readFile(entry.uri)
             selectedFileName = entry.relativePath
             workspaceError = null
@@ -96,12 +96,12 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun workspaceToolManifest(): JSONArray = workspaceUri?.let {
-        WorkspaceTools(getApplication<Application>().contentResolver, it).toolManifest()
+        WorkspaceTools(getApplication<Application>(), it).toolManifest()
     } ?: JSONArray()
 
     fun callWorkspaceTool(name: String, arguments: JSONObject): JSONObject {
         val uri = workspaceUri ?: throw IllegalStateException("Select a workspace first.")
-        return WorkspaceTools(getApplication<Application>().contentResolver, uri).callTool(name, arguments)
+        return WorkspaceTools(getApplication<Application>(), uri).callTool(name, arguments)
     }
 
     fun send() {
