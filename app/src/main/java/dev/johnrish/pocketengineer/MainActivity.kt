@@ -79,6 +79,17 @@ fun AirFiteApp(vm: ChatViewModel = viewModel()) {
                     Text("What are we building?", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                     Text("Connect a model, then start with a coding task.", color = muted)
                     Spacer(Modifier.height(16.dp))
+                    vm.pendingContextName?.let { attached ->
+                        Surface(color = panel, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+                            Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Description, null, tint = accent)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Attached: $attached", modifier = Modifier.weight(1f), maxLines = 1)
+                                TextButton(onClick = { vm.removePendingContext() }) { Text("Remove") }
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    }
                     LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp),
                         contentPadding = PaddingValues(bottom = 12.dp)) {
                         items(vm.messages) { msg -> MessageBubble(msg) }
@@ -140,6 +151,11 @@ private fun WorkspaceScreen(vm: ChatViewModel, onPickFolder: () -> Unit, onBack:
             Surface(color = panel, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp)) {
                 Text(vm.selectedFileContent.orEmpty(), modifier = Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall)
             }
+            Spacer(Modifier.height(8.dp))
+            Button(onClick = { if (vm.attachSelectedFileToNextMessage()) onBack() }, modifier = Modifier.fillMaxWidth()) {
+                Text("Attach to next chat message")
+            }
+            Text("Only this selected file is sent, and only after you attach it. Context limit: 64 KB.", color = muted, style = MaterialTheme.typography.labelSmall)
         }
         Text("Read-only tools: list_files · read_file · search_files", color = muted, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 8.dp))
     }
