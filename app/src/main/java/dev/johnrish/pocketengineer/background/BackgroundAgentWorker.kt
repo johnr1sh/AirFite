@@ -1,13 +1,16 @@
 package dev.johnrish.pocketengineer.background
 
-import android.Manifest\nimport android.content.pm.PackageManager\nimport android.app.NotificationChannel
+import android.Manifest
+import android.content.pm.PackageManager
+import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat\nimport androidx.core.content.ContextCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import dev.johnrish.pocketengineer.MainActivity
@@ -114,7 +117,9 @@ class BackgroundAgentWorker(context: Context, params: WorkerParameters) : Corout
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
-        if (Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {\n            runCatching { NotificationManagerCompat.from(applicationContext).notify(taskId.hashCode(), notification) }\n        }
+        if (Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+            runCatching { NotificationManagerCompat.from(applicationContext).notify(taskId.hashCode(), notification) }
+        }
     }
 
     companion object {
