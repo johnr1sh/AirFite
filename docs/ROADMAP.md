@@ -8,11 +8,13 @@ Updated: 2026-11-22
 - [x] Workspace file listing and text preview
 - [x] Transport-neutral read-only tool registry with MCP-style schemas
 - [x] Path validation, file/depth/read-size limits
+- [x] Keystore-backed AES-GCM provider key storage and plaintext-preference migration
+- [x] Mask API key input and surface secure-save errors
 - [x] Skip hidden and common generated/dependency folders
 - [ ] Add unit tests for path validation and tool dispatch
 
 ## Milestone 2 — Reliable provider and sessions
-- [ ] Keystore-backed encrypted API-key storage
+- [x] Keystore-backed encrypted API-key storage
 - [ ] Provider presets and endpoint validation
 - [ ] Streaming, cancellation, retry/backoff, request limits
 - [ ] Persistent conversation sessions and interrupted-task recovery
