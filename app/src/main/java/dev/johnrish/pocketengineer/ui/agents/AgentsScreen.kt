@@ -208,7 +208,7 @@ fun AgentsScreen(vm: ChatViewModel, modifier: Modifier = Modifier) {
                             Text(record.status + " · " + java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT).format(java.util.Date(record.createdAt)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
                             if (record.error.isNotBlank()) Text(record.error, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
                         }
-                        TextButton(onClick = { selected = record }) { Text(if (record.encryptedResult.isNotBlank()) "View" else "Details") }
+                        TextButton(onClick = { selected = record }) { Text(if (record.encryptedResult.isNotBlank()) "View" else "Details") }\n                        if (record.status == "Failed") TextButton(onClick = { runCatching { BackgroundTaskManager.retry(context, record.id) }.onFailure { taskError = it.message }; records = BackgroundTaskStore.list(context) }) { Text("Retry") }
                         IconButton(onClick = {
                             if (record.status == "Queued" || record.status == "Running" || record.status == "Retrying") BackgroundTaskManager.cancel(context, record.id)
                             else BackgroundTaskStore.delete(context, record.id)
