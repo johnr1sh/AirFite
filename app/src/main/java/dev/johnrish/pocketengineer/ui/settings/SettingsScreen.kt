@@ -50,10 +50,19 @@ import dev.johnrish.pocketengineer.ui.components.SectionLabel
 @Composable
 fun SettingsScreen(vm: ChatViewModel, modifier: Modifier = Modifier) {
     var showKey by remember { mutableStateOf(false) }
-    var saved by remember { mutableStateOf(false) }
+    var saved by remember { mutableStateOf(false) }\n    var connectionDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val version = remember {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "unknown"
+    }
+
+    if (connectionDialog) {
+        AlertDialog(
+            onDismissRequest = { connectionDialog = false },
+            title = { Text(if (vm.testingConnection) "Checking provider" else if (vm.loadingModels) "Fetching models" else "Provider status") },
+            text = { Text(vm.connectionStatus ?: "Request started. Waiting for provider response…") },
+            confirmButton = { Button(onClick = { connectionDialog = false }) { Text("Done") } }
+        )
     }
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).imePadding()) {
@@ -106,10 +115,10 @@ fun SettingsScreen(vm: ChatViewModel, modifier: Modifier = Modifier) {
                 }
                 if (saved && vm.settingsError == null) InlineNotice(text = "Settings saved.", isError = false)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { vm.testConnection() }, enabled = !vm.testingConnection, modifier = Modifier.weight(1f)) {
+                    OutlinedButton(onClick = { vm.testConnection(); connectionDialog = true }, enabled = !vm.testingConnection, modifier = Modifier.weight(1f)) {
                         Text(if (vm.testingConnection) "Testing…" else "Test")
                     }
-                    OutlinedButton(onClick = { vm.fetchModels() }, enabled = !vm.loadingModels, modifier = Modifier.weight(1f)) {
+                    OutlinedButton(onClick = { vm.fetchModels(); connectionDialog = true }, enabled = !vm.loadingModels, modifier = Modifier.weight(1f)) {
                         Text(if (vm.loadingModels) "Loading…" else "Fetch models")
                     }
                 }
