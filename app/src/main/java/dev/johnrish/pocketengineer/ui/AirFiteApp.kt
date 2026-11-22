@@ -123,14 +123,18 @@ fun AirFiteApp(vm: ChatViewModel = viewModel()) {
                         }
                     }
                     Column(Modifier.weight(1f).fillMaxSize()) {
-                        TopStrip(vm, onProviderClick = { destination = Destination.Settings })
-                        ScreenContent(destination, vm, folderPicker = { folderPicker.launch(null) }, onOpenSettings = { destination = Destination.Settings }, onOpenFiles = { destination = Destination.Files }, onAttached = { destination = Destination.Chat }, modifier = Modifier.fillMaxSize())
+                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                            TopStrip(vm, onProviderClick = { destination = Destination.Settings }, modifier = Modifier.widthIn(max = 960.dp))
+                        }
+                        Box(Modifier.weight(1f).fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                            ScreenContent(destination, vm, folderPicker = { folderPicker.launch(null) }, onOpenSettings = { destination = Destination.Settings }, onOpenFiles = { destination = Destination.Files }, onAttached = { destination = Destination.Chat }, modifier = Modifier.widthIn(max = 960.dp).fillMaxSize())
+                        }
                     }
                 }
             } else {
                 Column(Modifier.fillMaxSize()) {
                     TopStrip(vm, onProviderClick = { destination = Destination.Settings })
-                    ScreenContent(destination, vm, folderPicker = { folderPicker.launch(null) }, onOpenSettings = { destination = Destination.Settings }, onOpenFiles = { destination = Destination.Files }, onAttached = { destination = Destination.Chat })
+                    ScreenContent(destination, vm, folderPicker = { folderPicker.launch(null) }, onOpenSettings = { destination = Destination.Settings }, onOpenFiles = { destination = Destination.Files }, onAttached = { destination = Destination.Chat }, modifier = Modifier.fillMaxSize())
                 }
             }
         }
@@ -144,9 +148,10 @@ private fun ScreenContent(
     folderPicker: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenFiles: () -> Unit,
-    onAttached: () -> Unit
+    onAttached: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    AnimatedContent(targetState = destination, modifier = Modifier.fillMaxSize(), label = "AirFite destination") { target ->
+    AnimatedContent(targetState = destination, modifier = modifier, label = "AirFite destination") { target ->
         when (target) {
             Destination.Chat -> ChatScreen(vm, onOpenSettings, onOpenFiles, Modifier.fillMaxSize())
             Destination.Files -> WorkspaceScreen(vm, onPickFolder = folderPicker, onAttached = onAttached, modifier = Modifier.fillMaxSize())
