@@ -11,6 +11,9 @@ Updated: 2026-11-22
 - [x] Keystore-backed AES-GCM provider key storage and plaintext-preference migration
 - [x] Mask API key input and surface secure-save errors
 - [x] Skip hidden and common generated/dependency folders
+- [x] Explicit, bounded single-file context attachment to chat
+- [x] Sensitive filename and common credential-pattern attachment checks
+- [x] Treat attached file content as untrusted input in model instructions
 - [ ] Add unit tests for path validation and tool dispatch
 
 ## Milestone 2 — Reliable provider and sessions
