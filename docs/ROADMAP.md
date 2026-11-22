@@ -2,6 +2,14 @@
 
 Updated: 2026-11-22
 
+## Active focus — product foundation and agent connectivity
+- [x] Establish secure external-agent connection architecture and threat model (design baseline)
+- [ ] Rebuild navigation and UX around projects, chat, workspace, connections, activity, and settings
+- [ ] Add connection/session state model and tests
+- [ ] Implement and verify a first interoperable MCP transport
+- [ ] Add agent connection management, capability grants, and revocation
+- [ ] Add invocation/activity history and approval queue
+
 ## Milestone 1 — Scoped workspace foundation
 - [x] Android project at repository root
 - [x] SAF folder selection and persisted grant
@@ -48,3 +56,5 @@ Updated: 2026-11-22
 
 ## Current constraints
 Workspace tool descriptors are MCP-style, but no MCP network transport or external AI connection is implemented yet. File access is read-only. Workspace content is not automatically sent to the model. Build verification is delegated to CI; report actual workflow status before claiming success.
+
+Architecture decisions and security gates for external agent connections are documented in [AGENT_CONNECTION_ARCHITECTURE.md](AGENT_CONNECTION_ARCHITECTURE.md).
