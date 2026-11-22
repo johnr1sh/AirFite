@@ -1,6 +1,7 @@
 package dev.johnrish.pocketengineer.background
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -99,7 +100,7 @@ class BackgroundAgentWorker(context: Context, params: WorkerParameters) : Corout
         }
     }
 
-    private fun notifyUser(taskId: String, title: String, message: String) {
+    @SuppressLint("MissingPermission")\n    private fun notifyUser(taskId: String, title: String, message: String) {
         val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) {
             manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, "Background task results", NotificationManager.IMPORTANCE_DEFAULT))
