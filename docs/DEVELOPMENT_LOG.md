@@ -2,6 +2,16 @@
 
 Newest first.
 
+## 2026-11-23 (capabilities expansion)
+- Added guided provider setup with endpoint/key/model steps, validation, save-and-test flow, and model discovery.
+- Added recent-workspace switching, file-search empty states, and safer workspace change confirmation.
+- Added tablet navigation rail, centered wide-screen content, and animated destination transitions.
+- Added a Jetpack Glance home-screen widget with Chat and Files shortcuts.
+- Added WorkManager background prompt runs, network constraints, retries, encrypted task input/output, task history, retry/cancel/delete actions, and start/completion notifications.
+- Background runs are currently single provider requests; they do not yet use workspace tools or autonomous multi-step agent loops.
+- Build verification is pending for the latest head; intermediate CI runs exposed source-formatting issues that have been repaired and requeued.
+
+
 ## 2026-11-23 (guided UI refinement)
 - Added provider setup progress guidance for endpoint, API key, and model; connection testing and model discovery now have a dedicated status dialog.
 - Added a confirmation dialog before switching an existing workspace and an empty-search state in the Files browser.
