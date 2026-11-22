@@ -17,8 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.AlertDialog\nimport androidx.compose.material3.Button\nimport androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -54,9 +53,9 @@ fun SettingsScreen(vm: ChatViewModel, modifier: Modifier = Modifier) {
     }
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).imePadding()) {
-        ScreenHeader(title = "Settings", subtitle = "Configure your AI provider and security")
+        ScreenHeader(title = "Settings", subtitle = "Your connection, workspace, and privacy")\n\n        ProviderSetupGuide(vm)
 
-        SectionLabel("AI provider")
+        SectionLabel("Connection details")
         Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
@@ -92,7 +91,7 @@ fun SettingsScreen(vm: ChatViewModel, modifier: Modifier = Modifier) {
                         }
                     }
                 }
-                Text("OpenAI-compatible HTTPS endpoints are supported. Leave the key blank to retain the saved key.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Use an HTTPS endpoint compatible with the OpenAI chat-completions API. Your key is stored encrypted on this device.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 vm.settingsError?.let { InlineNotice(text = it, isError = true) }
                 vm.connectionStatus?.let { status ->
                     val good = status.startsWith("Connected") || status.startsWith("Loaded")
@@ -131,5 +130,58 @@ fun SettingsScreen(vm: ChatViewModel, modifier: Modifier = Modifier) {
             }
         }
         Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun ProviderSetupGuide(vm: ChatViewModel) {
+    val urlReady = vm.baseUrl.startsWith("https://")
+    val keyReady = vm.apiKey.isNotBlank()
+    val modelReady = vm.model.isNotBlank()
+    val completed = listOf(urlReady, keyReady, modelReady).count { it }
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.38f)
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Provider setup", style = MaterialTheme.typography.titleMedium)
+                    Text("$completed of 3 steps complete", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface) {
+                    Text(if (completed == 3) "Ready" else "Setup", modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                }
+            }
+            ProviderStep(1, "Endpoint URL", "HTTPS API endpoint", urlReady)
+            ProviderStep(2, "API key", "Secret key from your provider", keyReady)
+            ProviderStep(3, "Model ID", "Model identifier supported by that endpoint", modelReady)
+            Text(
+                if (completed == 3) "Next: test your connection, then save." else "Complete each step below. You can use any compatible provider.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProviderStep(number: Int, title: String, detail: String, complete: Boolean) {
+    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        Surface(
+            shape = androidx.compose.foundation.shape.CircleShape,
+            color = if (complete) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+            modifier = Modifier.size(28.dp)
+        ) {
+            androidx.compose.foundation.layout.Box(contentAlignment = androidx.compose.ui.Alignment.Center) {
+                Text(if (complete) "✓" else number.toString(), style = MaterialTheme.typography.labelMedium, color = if (complete) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleSmall)
+            Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
