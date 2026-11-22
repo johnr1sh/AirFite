@@ -16,5 +16,5 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-    </application>
+        <receiver\n            android:name=".widget.AirFiteQuickWidgetReceiver"\n            android:exported="false">\n            <intent-filter>\n                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />\n            </intent-filter>\n            <meta-data\n                android:name="android.appwidget.provider"\n                android:resource="@xml/airfite_quick_widget_info" />\n        </receiver>\n    </application>
 </manifest>
