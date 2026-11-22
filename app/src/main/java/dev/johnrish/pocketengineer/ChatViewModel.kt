@@ -168,7 +168,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 messages = messages + ChatMessage("assistant", reply)
                 if (input.trim() == prompt) input = ""
             } catch (e: Exception) {
-                messages = messages + ChatMessage("assistant", "Request failed: ${e.message ?: "Unknown error"}. Your prompt remains available to retry.")
+                messages = messages.dropLast(1) + ChatMessage("assistant", "Request failed: ${e.message ?: "Unknown error"}. Your prompt remains available to retry.")
             } finally { busy = false }
         }
     }
