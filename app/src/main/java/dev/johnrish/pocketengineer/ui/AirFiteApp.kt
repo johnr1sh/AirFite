@@ -2,6 +2,7 @@ package dev.johnrish.pocketengineer.ui
 
 import android.app.Application
 import android.content.Intent
+import androidx.compose.ui.platform.LocalContext
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -43,6 +44,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.johnrish.pocketengineer.ChatViewModel
+import dev.johnrish.pocketengineer.MainActivity
 import dev.johnrish.pocketengineer.ui.agents.AgentsScreen
 import dev.johnrish.pocketengineer.ui.chat.ChatScreen
 import dev.johnrish.pocketengineer.ui.components.AirFiteWordmark
@@ -59,7 +61,7 @@ private enum class Destination(val label: String, val outlined: ImageVector, val
 
 @Composable
 fun AirFiteApp(vm: ChatViewModel = viewModel()) {
-    var destination by rememberSaveable { mutableStateOf(Destination.Chat) }
+    val activity = LocalContext.current as? MainActivity\n    var destination by rememberSaveable { mutableStateOf(\n        runCatching { Destination.valueOf(activity?.intent?.getStringExtra(MainActivity.EXTRA_DESTINATION) ?: "Chat") }.getOrDefault(Destination.Chat)\n    )}
 
     val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
