@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark framework theme so the window never flashes light before Compose draws. -->
+    <style name="Theme.AirFite" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/airfite_background</item>
+        <item name="android:colorBackground">@color/airfite_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>

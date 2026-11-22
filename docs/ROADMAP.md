@@ -4,7 +4,10 @@ Updated: 2026-11-22
 
 ## Active focus — product foundation and agent connectivity
 - [x] Establish secure external-agent connection architecture and threat model (design baseline)
-- [ ] Rebuild navigation and UX around projects, chat, workspace, connections, activity, and settings
+- [x] Navigation shell and redesigned UI: Chat, Files, Agents, Settings; theme, logo, adaptive launcher icon (dark only)
+- [ ] Projects, activity log and approval-queue destinations (need the database and approval flow first)
+- [ ] Light theme and tablet layouts
+- [ ] UI tests (Compose) for navigation, settings and error states
 - [x] Persist bounded recent chat history and provide clear/new-chat action
 - [x] Add provider connectivity diagnostic against OpenAI-compatible `/models`
 - [x] Preserve encrypted API key when saving settings with key field blank

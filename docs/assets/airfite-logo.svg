@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="108" height="108" role="img" aria-label="AirFite logo">
+  <rect width="108" height="108" rx="24" fill="#0D1117"/>
+  <path d="M33 77 L54 31 L75 77" fill="none" stroke="#E6EDF3" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M43 63 L65 63" fill="none" stroke="#5CC8F5" stroke-width="8" stroke-linecap="round"/>
+</svg>

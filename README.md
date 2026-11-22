@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/assets/airfite-logo.svg" alt="AirFite logo" width="96"></p>
+
 # AirFite
 
 > **Proprietary software.** Copyright © 2026 John Rish Ladica. All rights reserved. This public repository is provided for viewing and GitHub forking only; no license is granted to copy, modify, redistribute, or use this software outside the rights provided by GitHub's platform terms and applicable law. Written permission is required for other use. See [LICENSE](LICENSE).
@@ -6,6 +8,7 @@
 AirFite is an Android-first coding assistant with a user-authorized local workspace.
 
 ## Current capabilities
+- Four-destination interface: Chat, Files, Agents, Settings (dark theme only; adaptive launcher icon)
 - Jetpack Compose Android app and OpenAI-compatible provider settings
 - Android Storage Access Framework workspace folder selection
 - Scoped file listing, text preview, and search
