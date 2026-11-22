@@ -4,7 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.LocalActivity\nimport androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -82,7 +82,7 @@ fun AgentsScreen(vm: ChatViewModel, modifier: Modifier = Modifier) {
     val tools = remember(vm.workspaceUri) { summarize(vm.workspaceToolManifest()) }
     var prompt by rememberSaveable { mutableStateOf("") }
     var records by remember { mutableStateOf(BackgroundTaskStore.list(context)) }
-    val initialTaskId = (context as? MainActivity)?.intent?.getStringExtra(BackgroundAgentWorker.EXTRA_TASK_ID)
+    val initialTaskId = activity?.intent?.getStringExtra(BackgroundAgentWorker.EXTRA_TASK_ID
     var selected by remember { mutableStateOf(BackgroundTaskStore.list(context).firstOrNull { it.id == initialTaskId }) }
     var taskResult by remember { mutableStateOf("") }
     var taskError by remember { mutableStateOf<String?>(null) }
