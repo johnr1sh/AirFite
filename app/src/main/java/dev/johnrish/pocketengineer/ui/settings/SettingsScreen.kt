@@ -31,6 +31,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -58,6 +59,7 @@ fun SettingsScreen(vm: ChatViewModel, modifier: Modifier = Modifier) {
     var connectionDialog by remember { mutableStateOf(false) }
     var wizardOpen by rememberSaveable { mutableStateOf(false) }
     var wizardStep by rememberSaveable { mutableIntStateOf(0) }
+    var wizardError by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val version = remember {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "unknown"
@@ -71,15 +73,15 @@ fun SettingsScreen(vm: ChatViewModel, modifier: Modifier = Modifier) {
                 Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (wizardStep == 0) {
                         Text("Where should AirFite send API requests?")
-                        OutlinedTextField(value = vm.baseUrl, onValueChange = { vm.baseUrl = it }, label = { Text("HTTPS endpoint") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(value = vm.baseUrl, onValueChange = { vm.baseUrl = it; wizardError = null }, label = { Text("HTTPS endpoint") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                         Text("Use your provider's OpenAI-compatible API base URL.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else if (wizardStep == 1) {
                         Text("Add the API key for this provider.")
-                        OutlinedTextField(value = vm.apiKey, onValueChange = { vm.apiKey = it }, label = { Text("API key") }, singleLine = true, visualTransformation = if (showKey) VisualTransformation.None else PasswordVisualTransformation(), trailingIcon = { IconButton(onClick = { showKey = !showKey }) { Icon(if (showKey) Icons.Filled.VisibilityOff else Icons.Filled.Visibility, contentDescription = if (showKey) "Hide key" else "Show key") } }, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(value = vm.apiKey, onValueChange = { vm.apiKey = it; wizardError = null }, label = { Text("API key") }, singleLine = true, visualTransformation = if (showKey) VisualTransformation.None else PasswordVisualTransformation(), trailingIcon = { IconButton(onClick = { showKey = !showKey }) { Icon(if (showKey) Icons.Filled.VisibilityOff else Icons.Filled.Visibility, contentDescription = if (showKey) "Hide key" else "Show key") } }, modifier = Modifier.fillMaxWidth())
                         Text("Stored encrypted using Android Keystore.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else if (wizardStep == 2) {
                         Text("Which model should AirFite use?")
-                        OutlinedTextField(value = vm.model, onValueChange = { vm.model = it }, label = { Text("Model ID") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(value = vm.model, onValueChange = { vm.model = it; wizardError = null }, label = { Text("Model ID") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                         if (vm.availableModels.isNotEmpty()) {
                             TextButton(onClick = { vm.model = vm.availableModels.first() }) { Text("Use first discovered model") }
                         }
@@ -92,8 +94,8 @@ fun SettingsScreen(vm: ChatViewModel, modifier: Modifier = Modifier) {
             confirmButton = {
                 if (wizardStep < 2) Button(onClick = {
                     when (wizardStep) {
-                        0 -> if (ProviderEndpoint.normalize(vm.baseUrl) != null) wizardStep = 1 else vm.settingsError = ProviderEndpoint.ERROR_MESSAGE
-                        1 -> if (vm.apiKey.isNotBlank()) wizardStep = 2 else vm.settingsError = "Enter an API key to continue."
+                        0 -> if (ProviderEndpoint.normalize(vm.baseUrl) != null) { wizardStep = 1; wizardError = null } else wizardError = ProviderEndpoint.ERROR_MESSAGE
+                        1 -> if (vm.apiKey.isNotBlank()) { wizardStep = 2; wizardError = null } else wizardError = "Enter an API key to continue."
                     }
                 }) { Text("Continue") }
                 else if (wizardStep == 2) Button(onClick = {
