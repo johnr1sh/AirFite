@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -103,7 +104,7 @@ private fun FileBrowser(vm: ChatViewModel, onPickFolder: () -> Unit, onOpenPrevi
             if (vm.workspaceUri != null) {
                 IconButton(onClick = { vm.refreshWorkspace() }) { Icon(Icons.Filled.Refresh, contentDescription = "Refresh files") }
             }
-            IconButton(onClick = onPickFolder) {
+            IconButton(onClick = { if (vm.workspaceUri == null) onPickFolder() else confirmWorkspaceChange = true }) {
                 Icon(Icons.Outlined.FolderOpen, contentDescription = if (vm.workspaceUri == null) "Choose folder" else "Change folder")
             }
         }
@@ -143,6 +144,7 @@ private fun FileBrowser(vm: ChatViewModel, onPickFolder: () -> Unit, onOpenPrevi
             }
             vm.workspaceError?.let { InlineNotice(text = it, isError = true) }
             LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
+                if (filtered.isEmpty()) item { EmptyState(icon = Icons.Filled.Search, title = "No matching files", body = "Try a different filename or path filter.") }
                 items(filtered) { entry ->
                     FileRow(entry, showFullPath = filter.isNotEmpty()) {
                         vm.openWorkspaceFile(entry)
