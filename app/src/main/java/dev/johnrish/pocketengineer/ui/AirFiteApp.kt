@@ -124,7 +124,7 @@ fun AirFiteApp(vm: ChatViewModel = viewModel()) {
                     }
                     Column(Modifier.weight(1f).fillMaxSize()) {
                         TopStrip(vm, onProviderClick = { destination = Destination.Settings })
-                        ScreenContent(destination, vm, folderPicker = { folderPicker.launch(null) }, onOpenSettings = { destination = Destination.Settings }, onOpenFiles = { destination = Destination.Files }, onAttached = { destination = Destination.Chat })
+                        ScreenContent(destination, vm, folderPicker = { folderPicker.launch(null) }, onOpenSettings = { destination = Destination.Settings }, onOpenFiles = { destination = Destination.Files }, onAttached = { destination = Destination.Chat }, modifier = Modifier.fillMaxSize())
                     }
                 }
             } else {
@@ -158,9 +158,9 @@ private fun ScreenContent(
 
 /** Brand on the left; real provider state on the right (a key is set or it is not). */
 @Composable
-private fun TopStrip(vm: ChatViewModel, onProviderClick: () -> Unit) {
+private fun TopStrip(vm: ChatViewModel, onProviderClick: () -> Unit, modifier: Modifier = Modifier) {
     val ready = vm.apiKey.isNotBlank()
-    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         AirFiteWordmark(Modifier.weight(1f))
         Row(
             Modifier.clip(MaterialTheme.shapes.small).clickable(onClick = onProviderClick).padding(horizontal = 8.dp, vertical = 6.dp),
