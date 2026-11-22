@@ -139,27 +139,29 @@ private fun FileBrowser(vm: ChatViewModel, onPickFolder: () -> Unit, onOpenPrevi
 @Composable
 private fun FileRow(entry: WorkspaceEntry, showFullPath: Boolean, onClick: () -> Unit) {
     val depth = if (showFullPath) 0 else entry.relativePath.count { it == '/' }.coerceAtMost(8)
-    Row(
-        Modifier.fillMaxWidth().clickable(enabled = !entry.isDirectory, onClick = onClick)
-            .padding(start = (depth * 14).dp, top = 10.dp, bottom = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(start = (depth * 12).dp, vertical = 3.dp)
+            .clickable(enabled = !entry.isDirectory, onClick = onClick),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLow
     ) {
-        Icon(
-            iconFor(entry), contentDescription = null, modifier = Modifier.size(20.dp),
-            tint = if (entry.isDirectory) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.width(12.dp))
-        Text(
-            if (showFullPath) entry.relativePath else entry.name,
-            Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis
-        )
-        if (!entry.isDirectory) {
+        Row(Modifier.padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                iconFor(entry), contentDescription = null, modifier = Modifier.size(20.dp),
+                tint = if (entry.isDirectory) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Spacer(Modifier.width(12.dp))
-            Text(formatSize(entry.size), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                if (showFullPath) entry.relativePath else entry.name,
+                Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis
+            )
+            if (!entry.isDirectory) {
+                Spacer(Modifier.width(12.dp))
+                Text(formatSize(entry.size), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }
-
 @Composable
 private fun FilePreview(vm: ChatViewModel, onClose: () -> Unit, onAttached: () -> Unit, modifier: Modifier) {
     val name = vm.selectedFileName.orEmpty()
