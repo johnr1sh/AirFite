@@ -5,6 +5,10 @@ Updated: 2026-11-22
 ## Active focus — product foundation and agent connectivity
 - [x] Establish secure external-agent connection architecture and threat model (design baseline)
 - [ ] Rebuild navigation and UX around projects, chat, workspace, connections, activity, and settings
+- [x] Persist bounded recent chat history and provide clear/new-chat action
+- [x] Add provider connectivity diagnostic against OpenAI-compatible `/models`
+- [x] Preserve encrypted API key when saving settings with key field blank
+- [x] Add workspace refresh and bounded search scan
 - [ ] Add connection/session state model and tests
 - [ ] Implement and verify a first interoperable MCP transport
 - [ ] Add agent connection management, capability grants, and revocation
@@ -31,7 +35,8 @@ Updated: 2026-11-22
 - [x] Keep failed prompts available for retry
 - [ ] Provider presets and endpoint validation
 - [ ] Streaming, cancellation, retry/backoff, request limits
-- [ ] Persistent conversation sessions and interrupted-task recovery
+- [x] Persistent recent conversation (40-message cap)
+- [ ] Multi-session conversation management and interrupted-task recovery
 - [ ] Provider abstraction
 
 ## Milestone 3 — Safe agent editing
