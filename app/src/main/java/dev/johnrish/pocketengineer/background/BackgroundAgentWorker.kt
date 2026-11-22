@@ -29,7 +29,7 @@ class BackgroundAgentWorker(context: Context, params: WorkerParameters) : Corout
         val id = inputData.getString(KEY_TASK_ID) ?: return@withContext Result.failure()
         val record = BackgroundTaskStore.list(applicationContext).firstOrNull { it.id == id } ?: return@withContext Result.failure()
         val task = BackgroundTaskStore.input(applicationContext, id) ?: return@withContext Result.failure()
-        BackgroundTaskStore.update(applicationContext, record.copy(status = "Running", error = ""))
+        BackgroundTaskStore.update(applicationContext, record.copy(status = "Running", error = ""))\n        notifyUser(id, "Background task running", "AirFite is working on your task.")
 
         try {
             val endpoint = ProviderEndpoint.normalize(task.baseUrl) ?: throw IllegalArgumentException(ProviderEndpoint.ERROR_MESSAGE)
