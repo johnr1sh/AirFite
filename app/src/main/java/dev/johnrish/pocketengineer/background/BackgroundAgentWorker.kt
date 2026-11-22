@@ -5,10 +5,12 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build\nimport android.content.pm.ServiceInfo
+import android.os.Build
+import android.content.pm.ServiceInfo
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.work.ForegroundInfo\nimport androidx.work.CoroutineWorker
+import androidx.work.ForegroundInfo
+import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import dev.johnrish.pocketengineer.MainActivity
 import dev.johnrish.pocketengineer.ProviderEndpoint
@@ -30,7 +32,8 @@ class BackgroundAgentWorker(context: Context, params: WorkerParameters) : Corout
         val store = BackgroundTaskStore
         val record = store.list(applicationContext).firstOrNull { it.id == id } ?: return@withContext Result.failure()
         val task = store.input(applicationContext, id) ?: return@withContext Result.failure()
-        store.update(applicationContext, record.copy(status = "Running", error = ""))\n        setForeground(createForegroundInfo(id))
+        store.update(applicationContext, record.copy(status = "Running", error = ""))
+        setForeground(createForegroundInfo(id))
 
         try {
             val endpoint = ProviderEndpoint.normalize(task.baseUrl) ?: throw IllegalArgumentException(ProviderEndpoint.ERROR_MESSAGE)
@@ -97,7 +100,27 @@ class BackgroundAgentWorker(context: Context, params: WorkerParameters) : Corout
         }
     }
 
-    private fun createForegroundInfo(taskId: String): ForegroundInfo {\n        createNotificationChannel()\n        val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)\n            .setSmallIcon(android.R.drawable.stat_notify_sync)\n            .setContentTitle("AirFite is working")\n            .setContentText("Your task is running in the background.")\n            .setOngoing(true)\n            .setProgress(0, 0, true)\n            .setPriority(NotificationCompat.PRIORITY_LOW)\n            .build()\n        return if (Build.VERSION.SDK_INT >= 29) ForegroundInfo(taskId.hashCode(), notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC) else ForegroundInfo(taskId.hashCode(), notification)\n    }\n\n    private fun createNotificationChannel() {\n        if (Build.VERSION.SDK_INT >= 26) {\n            val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager\n            manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, "Background tasks", NotificationManager.IMPORTANCE_LOW))\n        }\n    }\n\n    private fun notifyUser(taskId: String, title: String, message: String) {
+    private fun createForegroundInfo(taskId: String): ForegroundInfo {
+        createNotificationChannel()
+        val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setContentTitle("AirFite is working")
+            .setContentText("Your task is running in the background.")
+            .setOngoing(true)
+            .setProgress(0, 0, true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
+        return if (Build.VERSION.SDK_INT >= 29) ForegroundInfo(taskId.hashCode(), notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC) else ForegroundInfo(taskId.hashCode(), notification)
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= 26) {
+            val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, "Background tasks", NotificationManager.IMPORTANCE_LOW))
+        }
+    }
+
+    private fun notifyUser(taskId: String, title: String, message: String) {
         val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) {
             manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, "Background tasks", NotificationManager.IMPORTANCE_DEFAULT))
