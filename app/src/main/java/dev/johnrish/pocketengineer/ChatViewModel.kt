@@ -304,12 +304,9 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         val workspaceSummary = workspaceUri?.let { uri ->
             runCatching {
                 val entries = WorkspaceTools(getApplication<Application>(), uri).listFiles().take(100)
-                "Selected workspace: ${workspaceName ?: "selected folder"}
-Workspace index (first 100 entries):
-" +
-                    entries.joinToString("
-") { (if (it.isDirectory) "DIR " else "FILE ") + it.relativePath }
-            }.getOrElse { "Workspace selected, but its file index could not be be read." }
+                "Selected workspace: ${workspaceName ?: "selected folder"}\\nWorkspace index (first 100 entries):\\n" +
+                    entries.joinToString("\\n") { (if (it.isDirectory) "DIR " else "FILE ") + it.relativePath }
+            }.getOrElse { "Workspace selected, but its file index could not be read." }
         } ?: "No workspace selected. Do not claim to inspect project files."
         val systemPrompt = """
             You are AirFite, an experienced AI software engineering assistant.
