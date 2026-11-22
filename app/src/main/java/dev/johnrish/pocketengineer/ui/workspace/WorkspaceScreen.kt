@@ -8,8 +8,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size\nimport androidx.compose.foundation.rememberScrollState\nimport androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.width\nimport androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -29,7 +29,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import androidx.compose.material3.Text\nimport androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,7 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import dev.johnrish.pocketengineer.ChatViewModel
+import dev.johnrish.pocketengineer.ChatViewModel\nimport dev.johnrish.pocketengineer.RecentWorkspace
 import dev.johnrish.pocketengineer.WorkspaceEntry
 import dev.johnrish.pocketengineer.WorkspaceTools
 import dev.johnrish.pocketengineer.ui.components.EmptyState
@@ -89,7 +89,7 @@ fun WorkspaceScreen(
 
 @Composable
 private fun FileBrowser(vm: ChatViewModel, onPickFolder: () -> Unit, onOpenPreview: () -> Unit, modifier: Modifier) {
-    var confirmWorkspaceChange by rememberSaveable { mutableStateOf(false) }
+    var confirmWorkspaceChange by rememberSaveable { mutableStateOf(false) }\n    var showRecentWorkspaces by rememberSaveable { mutableStateOf(false) }
     if (confirmWorkspaceChange) {
         AlertDialog(
             onDismissRequest = { confirmWorkspaceChange = false },
@@ -97,6 +97,33 @@ private fun FileBrowser(vm: ChatViewModel, onPickFolder: () -> Unit, onOpenPrevi
             text = { Text("Choose another folder? Your current workspace stays available until you select a new one.") },
             confirmButton = { Button(onClick = { confirmWorkspaceChange = false; onPickFolder() }) { Text("Choose folder") } },
             dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmWorkspaceChange = false }) { Text("Cancel") } }
+        )
+    }
+    if (showRecentWorkspaces) {
+        AlertDialog(
+            onDismissRequest = { showRecentWorkspaces = false },
+            title = { Text("Recent workspaces") },
+            text = {
+                Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+                    if (vm.recentWorkspaces.isEmpty()) {
+                        Text("Your selected folders will appear here for quick switching.")
+                    } else {
+                        vm.recentWorkspaces.forEach { recent ->
+                            TextButton(
+                                onClick = { vm.setWorkspace(recent.uri); showRecentWorkspaces = false },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(Modifier.fillMaxWidth()) {
+                                    Text(recent.name, style = MaterialTheme.typography.titleSmall)
+                                    Text(recent.uri.lastPathSegment.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { Button(onClick = { showRecentWorkspaces = false; onPickFolder() }) { Text("Choose another folder") } },
+            dismissButton = { TextButton(onClick = { showRecentWorkspaces = false }) { Text("Close") } }
         )
     }
     Column(modifier.fillMaxSize().padding(horizontal = 16.dp)) {
