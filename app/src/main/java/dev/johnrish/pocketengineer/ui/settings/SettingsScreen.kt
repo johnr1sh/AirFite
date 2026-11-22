@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -32,8 +33,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf\nimport androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -202,7 +205,7 @@ fun SettingsScreen(vm: ChatViewModel, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun ProviderSetupGuide(vm: ChatViewModel) {
+private fun ProviderSetupGuide(vm: ChatViewModel, onStart: () -> Unit) {
     val urlReady = vm.baseUrl.startsWith("https://")
     val keyReady = vm.apiKey.isNotBlank()
     val modelReady = vm.model.isNotBlank()
@@ -225,11 +228,8 @@ private fun ProviderSetupGuide(vm: ChatViewModel) {
             ProviderStep(1, "Endpoint URL", "HTTPS API endpoint", urlReady)
             ProviderStep(2, "API key", "Secret key from your provider", keyReady)
             ProviderStep(3, "Model ID", "Model identifier supported by that endpoint", modelReady)
-            Text(
-                if (completed == 3) "Next: test your connection, then save." else "Complete each step below. You can use any compatible provider.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Text(if (completed == 3) "Configuration is ready to test." else "Complete the guided setup to connect your provider.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Button(onClick = onStart, modifier = Modifier.fillMaxWidth()) { Text(if (completed == 3) "Review & test provider" else "Start guided setup") }
         }
     }
 }
