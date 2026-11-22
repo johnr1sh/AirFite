@@ -82,7 +82,8 @@ fun AirFiteApp(vm: ChatViewModel = viewModel()) {
                         selected = selected,
                         onClick = { destination = item },
                         icon = { Icon(if (selected) item.filled else item.outlined, contentDescription = item.label) },
-                        label = { Text(item.label, maxLines = 1) },\n                        colors = NavigationBarItemDefaults.colors(indicatorColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+                        label = { Text(item.label, maxLines = 1) },
+                        colors = NavigationBarItemDefaults.colors(indicatorColor = MaterialTheme.colorScheme.surfaceContainerHigh)
                     )
                 }
             }
