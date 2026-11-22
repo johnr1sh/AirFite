@@ -2,6 +2,11 @@
 
 Newest first.
 
+## 2026-11-23 (guided UI refinement)
+- Added provider setup progress guidance for endpoint, API key, and model; connection testing and model discovery now have a dedicated status dialog.
+- Added a confirmation dialog before switching an existing workspace and an empty-search state in the Files browser.
+- Refined navigation and screen cards. Build verification is pending for the latest commits; earlier UI commits had compilation failures that are being corrected rather than treated as successful.
+
 ## 2026-11-23 (chat UX refinement)
 - Reworked the empty-chat experience into a more focused welcome, readable quick-start cards, and an explicit workspace-context affordance.
 - Refined the message composer into a rounded, bordered container with better attachment/send affordances and clearer placeholder copy.
