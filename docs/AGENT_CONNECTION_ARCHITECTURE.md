@@ -1,6 +1,6 @@
 # Agent Connections: Architecture and Security
 
-Status: design baseline; implementation has not started.
+Status: design baseline. Implemented so far: the connection session state machine (`agent/ConnectionSession`) and the deny-by-default tool policy (`agent/ToolPolicy`), both pure Kotlin with unit tests and **not yet wired to any transport or UI**. There is no MCP transport and no external agent connection yet.
 
 AirFite is intended to let an external AI agent work with a user-approved Android workspace without requiring AirFite to host or pay for the model. AirFite provides tools and execution boundaries; the connected agent provides reasoning and inference.
 

@@ -9,7 +9,8 @@ Updated: 2026-11-22
 - [x] Add provider connectivity diagnostic against OpenAI-compatible `/models`
 - [x] Preserve encrypted API key when saving settings with key field blank
 - [x] Add workspace refresh and bounded search scan
-- [ ] Add connection/session state model and tests
+- [x] Add connection/session state model and tests (`agent/ConnectionSession`; pure Kotlin, not yet wired to a transport or UI)
+- [x] Central deny-by-default tool policy with capability tiers (`agent/ToolPolicy`; not yet wired to a transport or UI)
 - [ ] Implement and verify a first interoperable MCP transport
 - [ ] Add agent connection management, capability grants, and revocation
 - [ ] Add invocation/activity history and approval queue
@@ -24,16 +25,17 @@ Updated: 2026-11-22
 - [x] Mask API key input and surface secure-save errors
 - [x] Skip hidden and common generated/dependency folders
 - [x] Explicit, bounded single-file context attachment to chat
-- [x] Sensitive filename and common credential-pattern attachment checks
+- [x] Sensitive filename and common credential-pattern attachment checks (now includes hyphenated `sk-proj-`/`sk-ant-` keys, GitHub and Slack tokens)
 - [x] Treat attached file content as untrusted input in model instructions
-- [ ] Add unit tests for path validation and tool dispatch
+- [x] Unit tests for path validation (`workspace/WorkspacePath`) and secret/sensitive-file guard
+- [ ] Unit tests for tool dispatch (blocked on an Android-free workspace abstraction)
 
 ## Milestone 2 — Reliable provider and sessions
 - [x] Keystore-backed encrypted API-key storage
 - [x] HTTPS endpoint and model validation at settings save
 - [x] Multi-turn chat context (bounded to last 12 messages)
 - [x] Keep failed prompts available for retry
-- [x] Shared HTTPS provider endpoint validation (rejects credentials, query/fragment, malformed hosts, and invalid ports)
+- [x] Shared HTTPS provider endpoint validation (rejects credentials, query/fragment, malformed hosts, and invalid ports), enforced on chat requests as well as settings
 - [ ] Provider presets
 - [x] Bounded provider response bodies and explicit connection/read/call timeouts
 - [ ] Streaming, cancellation, retry/backoff, request limits
