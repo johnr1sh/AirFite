@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "PocketEngineer"
+rootProject.name = "AirFite"
 include(":app")
