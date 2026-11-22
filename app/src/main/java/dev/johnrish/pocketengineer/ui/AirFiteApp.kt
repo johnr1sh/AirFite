@@ -143,7 +143,8 @@ private fun ScreenContent(
     vm: ChatViewModel,
     folderPicker: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenFiles: () -> Unit
+    onOpenFiles: () -> Unit,
+    onAttached: () -> Unit
 ) {
     AnimatedContent(targetState = destination, modifier = Modifier.fillMaxSize(), label = "AirFite destination") { target ->
         when (target) {
