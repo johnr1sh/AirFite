@@ -20,7 +20,8 @@ import androidx.glance.layout.padding
 import androidx.glance.layout.width
 import androidx.glance.text.Text
 import androidx.glance.Button
-import androidx.compose.ui.graphics.Color\nimport androidx.glance.unit.ColorProvider
+import androidx.compose.ui.graphics.Color
+import androidx.glance.unit.ColorProvider
 import androidx.compose.ui.unit.dp
 import dev.johnrish.pocketengineer.MainActivity
 
