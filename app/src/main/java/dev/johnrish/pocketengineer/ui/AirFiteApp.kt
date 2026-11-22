@@ -130,7 +130,7 @@ fun AirFiteApp(vm: ChatViewModel = viewModel()) {
             } else {
                 Column(Modifier.fillMaxSize()) {
                     TopStrip(vm, onProviderClick = { destination = Destination.Settings })
-                    ScreenContent(destination, vm, folderPicker, onOpenSettings = { destination = Destination.Settings }, onOpenFiles = { destination = Destination.Files })
+                    ScreenContent(destination, vm, folderPicker = { folderPicker.launch(null) }, onOpenSettings = { destination = Destination.Settings }, onOpenFiles = { destination = Destination.Files }, onAttached = { destination = Destination.Chat })
                 }
             }
         }
