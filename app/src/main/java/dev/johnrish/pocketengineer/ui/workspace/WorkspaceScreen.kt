@@ -122,7 +122,15 @@ private fun FileBrowser(vm: ChatViewModel, onPickFolder: () -> Unit, onOpenPrevi
                     }
                 }
             )
-            Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 6.dp)) {\n                Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {\n                    Icon(Icons.Outlined.Folder, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))\n                    Spacer(Modifier.width(8.dp))\n                    Text("${filtered.size} visible", style = MaterialTheme.typography.labelMedium)\n                    Spacer(Modifier.weight(1f))\n                    Text("${vm.workspaceFiles.size} total", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)\n                }\n            }
+            Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 6.dp)) {
+                Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.Folder, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("${filtered.size} visible", style = MaterialTheme.typography.labelMedium)
+                    Spacer(Modifier.weight(1f))
+                    Text("${vm.workspaceFiles.size} total", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
             vm.workspaceError?.let { InlineNotice(text = it, isError = true) }
             LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
                 items(filtered) { entry ->
