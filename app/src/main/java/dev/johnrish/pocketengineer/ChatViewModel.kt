@@ -13,19 +13,21 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
 
 data class ChatMessage(val role: String, val content: String)
 
 class ChatViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("provider", 0)
+    private val secureKeys = SecureKeyStore()
     private val client = OkHttpClient.Builder().callTimeout(90, TimeUnit.SECONDS).build()
     var messages by androidx.compose.runtime.mutableStateOf(listOf<ChatMessage>())
         private set
     var input by androidx.compose.runtime.mutableStateOf("")
     var busy by androidx.compose.runtime.mutableStateOf(false)
     var baseUrl by androidx.compose.runtime.mutableStateOf(prefs.getString("baseUrl", "https://api.openai.com/v1") ?: "")
-    var apiKey by androidx.compose.runtime.mutableStateOf(prefs.getString("apiKey", "") ?: "")
+    var apiKey by androidx.compose.runtime.mutableStateOf(loadApiKey(app))
     var model by androidx.compose.runtime.mutableStateOf(prefs.getString("model", "gpt-4o-mini") ?: "")
     var workspaceUri by androidx.compose.runtime.mutableStateOf(prefs.getString("workspaceUri", null)?.let(Uri::parse))
         private set
@@ -41,10 +43,23 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     var workspaceError by androidx.compose.runtime.mutableStateOf<String?>(null)
         private set
 
+    private fun loadApiKey(app: Application): String {
+        val stored = prefs.getString("encryptedApiKey", "").orEmpty()
+        if (stored.isNotBlank()) return runCatching { secureKeys.decrypt(stored) }.getOrDefault("")
+        // Migrate the previous plaintext preference on first load.
+        val legacy = prefs.getString("apiKey", "").orEmpty()
+        if (legacy.isNotBlank()) runCatching {
+            prefs.edit().putString("encryptedApiKey", secureKeys.encrypt(legacy)).remove("apiKey").apply()
+        }
+        return legacy
+    }
+
     init { refreshWorkspace() }
 
     fun saveSettings() {
-        prefs.edit().putString("baseUrl", baseUrl.trim().trimEnd('/')).putString("apiKey", apiKey).putString("model", model).apply()
+        val encrypted = secureKeys.encrypt(apiKey)
+        prefs.edit().putString("baseUrl", baseUrl.trim().trimEnd('/'))
+            .putString("encryptedApiKey", encrypted).remove("apiKey").putString("model", model).apply()
     }
 
     fun setWorkspace(uri: Uri) {
