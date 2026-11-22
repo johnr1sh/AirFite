@@ -100,23 +100,10 @@ class BackgroundAgentWorker(context: Context, params: WorkerParameters) : Corout
         }
     }
 
-    private fun createForegroundInfo(taskId: String): ForegroundInfo {
-        createNotificationChannel()
-        val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_notify_sync)
-            .setContentTitle("AirFite is working")
-            .setContentText("Your task is running in the background.")
-            .setOngoing(true)
-            .setProgress(0, 0, true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
-        return if (Build.VERSION.SDK_INT >= 29) ForegroundInfo(taskId.hashCode(), notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC) else ForegroundInfo(taskId.hashCode(), notification)
-    }
-
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= 26) {
             val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, "Background tasks", NotificationManager.IMPORTANCE_LOW))
+            manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, "Background task results", NotificationManager.IMPORTANCE_DEFAULT))
         }
     }
 
