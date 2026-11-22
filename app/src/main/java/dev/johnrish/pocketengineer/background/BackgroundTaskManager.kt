@@ -8,7 +8,6 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
-import dev.johnrish.pocketengineer.ChatViewModel
 import dev.johnrish.pocketengineer.ProviderEndpoint
 import java.util.UUID
 import java.util.concurrent.TimeUnit
