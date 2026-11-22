@@ -100,9 +100,9 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     fun fetchModels() {
         if (loadingModels) return
-        val endpoint = baseUrl.trim().trimEnd('/')
-        if (Uri.parse(endpoint).scheme != "https" || Uri.parse(endpoint).host.isNullOrBlank()) {
-            connectionStatus = "Enter a valid HTTPS endpoint first."
+        val endpoint = ProviderEndpoint.normalize(baseUrl)
+        if (endpoint == null) {
+            connectionStatus = ProviderEndpoint.ERROR_MESSAGE
             return
         }
         if (apiKey.isBlank()) {
@@ -133,10 +133,9 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     fun testConnection() {
         if (testingConnection) return
-        val endpoint = baseUrl.trim().trimEnd('/')
-        val parsed = Uri.parse(endpoint)
-        if (parsed.scheme != "https" || parsed.host.isNullOrBlank() || parsed.userInfo != null) {
-            connectionStatus = "Enter a valid HTTPS endpoint first."
+        val endpoint = ProviderEndpoint.normalize(baseUrl)
+        if (endpoint == null) {
+            connectionStatus = ProviderEndpoint.ERROR_MESSAGE
             return
         }
         if (apiKey.isBlank()) {
@@ -165,10 +164,9 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun saveSettings(): Boolean {
-        val endpoint = baseUrl.trim()
-        val parsed = Uri.parse(endpoint)
-        if (parsed.scheme != "https" || parsed.host.isNullOrBlank() || parsed.userInfo != null) {
-            settingsError = "Use a valid HTTPS API base URL (for example, https://api.openai.com/v1)."
+        val endpoint = ProviderEndpoint.normalize(baseUrl)
+        if (endpoint == null) {
+            settingsError = ProviderEndpoint.ERROR_MESSAGE
             return false
         }
         if (model.isBlank()) {
