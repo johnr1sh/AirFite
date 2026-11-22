@@ -18,7 +18,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
-data class ChatMessage(val role: String, val content: String)
+data class ChatMessage(val role: String, val content: String)\ndata class RecentWorkspace(val uri: Uri, val name: String)
 
 class ChatViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("provider", 0)
@@ -47,7 +47,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var workspaceUri by androidx.compose.runtime.mutableStateOf(prefs.getString("workspaceUri", null)?.let(Uri::parse))
         private set
-    var workspaceName by androidx.compose.runtime.mutableStateOf<String?>(null)
+    var recentWorkspaces by androidx.compose.runtime.mutableStateOf(loadRecentWorkspaces(prefs))\n        private set\n    var workspaceName by androidx.compose.runtime.mutableStateOf<String?>(null)
         private set
     var workspaceFiles by androidx.compose.runtime.mutableStateOf<List<WorkspaceEntry>>(emptyList())
         private set
@@ -192,7 +192,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         refreshWorkspace()
     }
 
-    fun refreshWorkspace() {
+    private fun loadRecentWorkspaces(prefs: android.content.SharedPreferences): List<RecentWorkspace> = runCatching {\n        val json = JSONArray(prefs.getString("recentWorkspaces", "[]"))\n        (0 until json.length()).mapNotNull { index ->\n            json.optJSONObject(index)?.let { item ->\n                val uri = item.optString("uri").takeIf(String::isNotBlank)?.let(Uri::parse) ?: return@let null\n                RecentWorkspace(uri, item.optString("name").ifBlank { "Workspace" })\n            }\n        }.take(5)\n    }.getOrDefault(emptyList())\n\n    fun refreshWorkspace() {
         val uri = workspaceUri ?: return
         runCatching {
             val root = androidx.documentfile.provider.DocumentFile.fromTreeUri(getApplication(), uri)
