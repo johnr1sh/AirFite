@@ -73,7 +73,7 @@ fun WorkspaceScreen(
     onAttached: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var previewOpen by rememberSaveable { mutableStateOf(false) }
+    var previewOpen by rememberSaveable { mutableStateOf(false) }\n    var confirmWorkspaceChange by rememberSaveable { mutableStateOf(false) }\n    if (confirmWorkspaceChange) {\n        AlertDialog(\n            onDismissRequest = { confirmWorkspaceChange = false },\n            title = { Text("Change workspace?") },\n            text = { Text("Choose another folder? Your current workspace stays available until you select a new one.") },\n            confirmButton = { Button(onClick = { confirmWorkspaceChange = false; onPickFolder() }) { Text("Choose folder") } },\n            dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmWorkspaceChange = false }) { Text("Cancel") } }\n        )\n    }
     if (previewOpen && vm.selectedFileName != null) {
         FilePreview(
             vm = vm,
