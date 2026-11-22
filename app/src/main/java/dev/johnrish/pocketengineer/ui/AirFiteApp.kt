@@ -124,7 +124,7 @@ fun AirFiteApp(vm: ChatViewModel = viewModel()) {
                     }
                     Column(Modifier.weight(1f).fillMaxSize()) {
                         TopStrip(vm, onProviderClick = { destination = Destination.Settings })
-                        ScreenContent(destination, vm, folderPicker, onOpenSettings = { destination = Destination.Settings }, onOpenFiles = { destination = Destination.Files })
+                        ScreenContent(destination, vm, folderPicker = { folderPicker.launch(null) }, onOpenSettings = { destination = Destination.Settings }, onOpenFiles = { destination = Destination.Files }, onAttached = { destination = Destination.Chat })
                     }
                 }
             } else {
@@ -148,7 +148,7 @@ private fun ScreenContent(
     AnimatedContent(targetState = destination, modifier = Modifier.fillMaxSize(), label = "AirFite destination") { target ->
         when (target) {
             Destination.Chat -> ChatScreen(vm, onOpenSettings, onOpenFiles, Modifier.fillMaxSize())
-            Destination.Files -> WorkspaceScreen(vm, onPickFolder = folderPicker, onAttached = { /* keep current destination */ }, modifier = Modifier.fillMaxSize())
+            Destination.Files -> WorkspaceScreen(vm, onPickFolder = folderPicker, onAttached = onAttached, modifier = Modifier.fillMaxSize())
             Destination.Agents -> AgentsScreen(vm, Modifier.fillMaxSize())
             Destination.Settings -> SettingsScreen(vm, Modifier.fillMaxSize())
         }
