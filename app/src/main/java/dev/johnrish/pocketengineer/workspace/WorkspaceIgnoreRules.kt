@@ -117,7 +117,7 @@ class WorkspaceIgnoreRules private constructor(private val rules: List<Rule>) {
                     }
                 }
             }
-            out.append('
+            out.append(36.toChar())
             return Regex(out.toString())
         }
     }
