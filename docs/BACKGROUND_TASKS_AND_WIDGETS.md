@@ -8,12 +8,14 @@ The Agents screen can queue a prompt using WorkManager. Work is persisted by And
 
 - Prompt limit: 6,000 characters.
 - Provider responses are bounded to 2 MB.
-- At most 20 task-history records are retained.
+- Task history retains up to 20 terminal records; active tasks are never evicted to make room.
+- At most 10 tasks can be queued, running, or retrying at once; queueing/retrying beyond this limit is rejected.
 - Provider key, prompt, task title, and successful response are encrypted with the app's Android Keystore-backed AES-GCM key.
 - Background tasks do not automatically read workspace files or invoke workspace tools.
 - The worker currently performs one OpenAI-compatible chat-completions request. It is not yet an autonomous multi-step agent or a foreground service.
 - Android and WorkManager may defer execution to preserve battery and system health. A queued task is not a guarantee of immediate execution.
-- Failed tasks retain their encrypted input for an explicit Retry action. Successful tasks remove their encrypted input while retaining the encrypted result.
+- Failed tasks retain their encrypted input for an explicit Retry action. Successful and cancelled tasks remove their encrypted input while retaining the encrypted result (when completed).
+- Task record updates are synchronized and written together with input changes. A late worker update cannot resurrect a deleted record or overwrite a persisted cancellation.
 
 ## Notifications
 AirFite requests notification permission when a user queues their first background task on Android 13 or newer. Tasks still appear in the in-app history if permission is declined. Notifications contain generic task status text rather than prompt or response content.
