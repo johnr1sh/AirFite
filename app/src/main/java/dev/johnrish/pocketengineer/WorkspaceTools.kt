@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import dev.johnrish.pocketengineer.workspace.WorkspacePath
+import dev.johnrish.pocketengineer.workspace.WorkspaceIgnoreRules
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
