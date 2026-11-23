@@ -1,8 +1,9 @@
 ## 2026-11-23 (workspace ignore rules and CI warning cleanup)
-- Workspace listing and bounded search now honor the selected root folder's `.gitignore`, capped at 32 KB; unsupported/invalid or unreadable ignore files fall back to no user rules rather than hiding files.
+- Workspace listing and bounded search now honor the selected root folder's `.gitignore`, capped at 32 KB; unreadable, oversized, or binary ignore files fall back to no user rules rather than hiding files.
 - Added pure-Kotlin matcher tests for root anchoring, nested directory rules, glob patterns, negation, escaped comment/negation markers, and blank lines.
-- CI now uses Gradle 8.14.8 (latest patched 8.x at this update); explicitly keeps the AndroidX Graphics Path native library that AGP could not strip; switched the deprecated chat arrow to its auto-mirrored icon.
-- CI result for the pre-change head `9c80ff3`: testDebugUnitTest, lintDebug, assembleDebug all passed (run 158). Changes in this entry require a new CI run; no build is claimed yet.
+- CI uses Gradle 8.14.8, explicitly preserves the AndroidX Graphics Path native library that AGP could not strip, uses the auto-mirrored chat arrow, and cancels stale same-ref runs. The build command uses `--warning-mode=all`.
+- Kotlin matcher harness passed 29 assertions. CI run 185 (`a913266`) passed unit tests, lint, and APK assembly; run 186 (`4d2df25`) also passed.
+- Remaining Gradle deprecation warnings originate from AGP internals (`isCrunchPngs`, `isUseProguard`, `isWearAppUnbundled`, and null attribute lookup). Gradle 8.14.8 is the latest patched 8.x line; its “out of date” notice is informational. A coordinated AGP/Kotlin/Gradle upgrade is the next compatibility cleanup.
 
 # Development log
 
