@@ -365,8 +365,18 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     is AgentToolCallValidation.Valid -> validation.calls
                     is AgentToolCallValidation.Invalid -> throw IllegalStateException(validation.reason)
                 }
-                // Do not send malformed provider tool-call envelopes back to the provider or dispatch them.
-                messages.put(message)
+                // Normalize provider-specific argument representations before echoing the assistant
+                // tool-call message back in the next request; the protocol expects arguments as JSON text.
+                val normalizedMessage = JSONObject(message.toString())
+                val normalizedCalls = JSONArray()
+                for (index in validatedCalls.indices) {
+                    val originalCall = calls.getJSONObject(index)
+                    originalCall.getJSONObject("function").put("arguments", validatedCalls[index].arguments.toString())
+                    normalizedCalls.put(originalCall)
+                }
+                normalizedMessage.put("tool_calls", normalizedCalls)
+                // Do not dispatch until the complete provider batch has passed validation.
+                messages.put(normalizedMessage)
                 for (call in validatedCalls) {
                     val result = runCatching {
                         workspaceTools?.callTool(call.name, call.arguments)
