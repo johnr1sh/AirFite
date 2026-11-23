@@ -21,6 +21,13 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+    packaging {
+        jniLibs {
+            // AndroidX Graphics Path ships a native library that AGP cannot strip on this runner.
+            // Preserve it explicitly instead of emitting an "Unable to strip" warning.
+            keepDebugSymbols += "**/libandroidx.graphics.path.so"
+        }
+    }
     buildFeatures { compose = true }
 }
 
