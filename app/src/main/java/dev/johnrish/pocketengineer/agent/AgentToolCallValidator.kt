@@ -112,20 +112,54 @@ object AgentToolCallValidator {
                 if (!allowAdditional) return "Tool arguments contain an unsupported field."
                 continue
             }
-            if (!matchesType(value, property.optString("type"))) {
-                return "Tool argument type does not match the registered schema."
+            val valueError = validateValue(value, property)
+            if (valueError != null) return valueError
+        }
+        return null
+    }
+
+    /** Validate supported JSON Schema constraints without coercing provider input. */
+    private fun validateValue(value: Any?, schema: JSONObject): String? {
+        if (!matchesType(value, schema.optString("type"))) {
+            return "Tool argument type does not match the registered schema."
+        }
+        if (value is String) {
+            val minLength = schema.optInt("minLength", 0)
+            val maxLength = schema.optInt("maxLength", Int.MAX_VALUE)
+            if (minLength < 0 || maxLength < minLength) return "Registered tool has invalid string-length constraints."
+            if (value.length < minLength || value.length > maxLength) {
+                return "Tool argument string length is outside the registered bounds."
             }
-            if (value is String) {
-                val minLength = property.optInt("minLength", 0)
-                val maxLength = property.optInt("maxLength", Int.MAX_VALUE)
-                if (value.length < minLength || value.length > maxLength) {
-                    return "Tool argument string length is outside the registered bounds."
+        }
+        if (value is Number) {
+            val number = value.toDouble()
+            if (!number.isFinite()) return "Tool argument number must be finite."
+            if (schema.has("minimum") && (!schema.optDouble("minimum").isFinite() || number < schema.optDouble("minimum"))) {
+                return "Tool argument number is below the registered minimum."
+            }
+            if (schema.has("maximum") && (!schema.optDouble("maximum").isFinite() || number > schema.optDouble("maximum"))) {
+                return "Tool argument number is above the registered maximum."
+            }
+        }
+        if (value is JSONArray) {
+            val minItems = schema.optInt("minItems", 0)
+            val maxItems = schema.optInt("maxItems", Int.MAX_VALUE)
+            if (minItems < 0 || maxItems < minItems) return "Registered tool has invalid array-size constraints."
+            if (value.length() < minItems || value.length() > maxItems) {
+                return "Tool argument array length is outside the registered bounds."
+            }
+            val itemSchema = schema.optJSONObject("items")
+            if (itemSchema != null) {
+                for (index in 0 until value.length()) {
+                    if (validateValue(value.opt(index), itemSchema) != null) {
+                        return "Tool argument array contains an invalid item."
+                    }
                 }
             }
-            val enumValues = property.optJSONArray("enum")
-            if (enumValues != null && !containsValue(enumValues, value)) {
-                return "Tool argument is not one of the allowed values."
-            }
+        }
+        val enumValues = schema.optJSONArray("enum")
+        if (enumValues != null && !containsValue(enumValues, value)) {
+            return "Tool argument is not one of the allowed values."
         }
         return null
     }
