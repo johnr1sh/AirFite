@@ -15,6 +15,7 @@ AirFite is an Android-first coding assistant with a user-authorized local worksp
 - Explicit single-file context attachment to chat (64 KB limit; sensitive-name and common secret-pattern checks)
 - Transport-neutral workspace tool registry with MCP-style descriptors
 - Read-only tools: `workspace.list_files`, `workspace.read_file`, and `workspace.search_files`
+- Provider tool-call validation (IDs, registered names, JSON object arguments) and bounded, valid-JSON tool results
 - File count, depth, and read-size limits; hidden and build/dependency folders excluded
 - GitHub Actions debug APK build
 
