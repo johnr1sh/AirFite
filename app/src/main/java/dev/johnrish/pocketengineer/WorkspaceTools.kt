@@ -19,24 +19,59 @@ class WorkspaceTools(private val context: Context, private val treeUri: Uri) {
         const val MAX_SEARCH_FILES = 100
         const val MAX_SEARCH_FILE_BYTES = 32 * 1024
         const val MAX_SEARCH_TOTAL_BYTES = 2 * 1024 * 1024
+        const val MAX_IGNORE_FILE_BYTES = 32 * 1024
     }
 
     fun listFiles(): List<WorkspaceEntry> {
+        val root = DocumentFile.fromTreeUri(context, treeUri)
+        val ignoreRules = loadRootIgnoreRules(root)
         val output = mutableListOf<WorkspaceEntry>()
-        walk(DocumentFile.fromTreeUri(context, treeUri), "", 0, output)
+        walk(root, "", 0, output, ignoreRules)
         return output.sortedBy { it.relativePath.lowercase() }
     }
 
-    private fun walk(folder: DocumentFile?, parent: String, depth: Int, output: MutableList<WorkspaceEntry>) {
+    private fun walk(
+        folder: DocumentFile?,
+        parent: String,
+        depth: Int,
+        output: MutableList<WorkspaceEntry>,
+        ignoreRules: WorkspaceIgnoreRules
+    ) {
         if (folder == null || depth > MAX_DEPTH || output.size >= MAX_FILES) return
         for (child in folder.listFiles().sortedBy { it.name?.lowercase().orEmpty() }) {
             if (output.size >= MAX_FILES) break
             val name = child.name ?: continue
             if (name.startsWith(".") || name in setOf("node_modules", "build", ".git", ".gradle")) continue
             val path = if (parent.isEmpty()) name else "$parent/$name"
+            if (ignoreRules.isIgnored(path, child.isDirectory)) continue
             output.add(WorkspaceEntry(name, child.uri, child.isDirectory, child.length(), path))
-            if (child.isDirectory) walk(child, path, depth + 1, output)
+            if (child.isDirectory) walk(child, path, depth + 1, output, ignoreRules)
         }
+    }
+
+    private fun loadRootIgnoreRules(root: DocumentFile?): WorkspaceIgnoreRules {
+        val ignoreFile = runCatching {
+            root?.listFiles()?.firstOrNull { !it.isDirectory && it.name == ".gitignore" }
+        }.getOrNull() ?: return WorkspaceIgnoreRules.EMPTY
+
+        if (ignoreFile.length() > MAX_IGNORE_FILE_BYTES) return WorkspaceIgnoreRules.EMPTY
+        return runCatching {
+            context.contentResolver.openInputStream(ignoreFile.uri)?.use { stream ->
+                val output = ByteArrayOutputStream()
+                val buffer = ByteArray(4096)
+                var total = 0
+                while (true) {
+                    val count = stream.read(buffer)
+                    if (count < 0) break
+                    total += count
+                    if (total > MAX_IGNORE_FILE_BYTES) return WorkspaceIgnoreRules.EMPTY
+                    output.write(buffer, 0, count)
+                }
+                val bytes = output.toByteArray()
+                if (bytes.any { it == 0.toByte() }) return WorkspaceIgnoreRules.EMPTY
+                WorkspaceIgnoreRules.parse(bytes.toString(Charsets.UTF_8))
+            } ?: WorkspaceIgnoreRules.EMPTY
+        }.getOrDefault(WorkspaceIgnoreRules.EMPTY)
     }
 
     fun readFile(uri: Uri): String {
