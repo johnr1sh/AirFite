@@ -152,8 +152,9 @@ class ConnectionSessionTest {
     @Test
     fun failureReasonIsBoundedAndSingleLine() {
         val s = fresh().configure().connect(1).fail("line1\n\n  line2 " + "x".repeat(1000), 2)
-        assertTrue(s.failure!!.length <= ConnectionSession.MAX_FAILURE_LENGTH)
-        assertFalse(s.failure!!.contains('\n'))
+        val failure = s.failure.orEmpty()
+        assertTrue(failure.length <= ConnectionSession.MAX_FAILURE_LENGTH)
+        assertFalse(failure.contains('\n'))
     }
 
     @Test
