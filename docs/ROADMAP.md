@@ -44,6 +44,7 @@ Updated: 2026-11-23
 - [x] Bounded provider response bodies and explicit connection/read/call timeouts
 - [ ] Streaming, cancellation, retry/backoff, request limits
 - [x] Persistent recent conversation (40-message cap)
+- [x] Encrypted WorkManager background prompt tasks with bounded history (20 records), active queue cap (10), retry, cancel, and cancellation-safe result persistence
 - [ ] Multi-session conversation management and interrupted-task recovery
 - [ ] Provider abstraction
 
@@ -71,6 +72,6 @@ Updated: 2026-11-23
 - [ ] Accessibility, keyboard navigation, tablet layouts, UI tests
 
 ## Current constraints
-Workspace tool descriptors are MCP-style, but no MCP network transport or external AI connection is implemented yet. File access is read-only. Provider tool-call envelopes are validated before dispatch; malformed calls fail closed, and oversized tool results are returned as bounded valid JSON with partial-preview metadata. Workspace content is not automatically sent to the model. Build verification is delegated to CI; report actual workflow status before claiming success.
+Background prompt runs are single provider requests, not autonomous multi-step agents. Task history is capped at 20 records; up to 10 tasks may be queued/running/retrying, active tasks are not evicted, and cancellation is persisted so late worker updates cannot overwrite it. Workspace tool descriptors are MCP-style, but no MCP network transport or external AI connection is implemented yet. File access is read-only. Provider tool-call envelopes are validated before dispatch; malformed calls fail closed, and oversized tool results are returned as bounded valid JSON with partial-preview metadata. Workspace content is not automatically sent to the model. Build verification is delegated to CI; report actual workflow status before claiming success.
 
 Architecture decisions and security gates for external agent connections are documented in [AGENT_CONNECTION_ARCHITECTURE.md](AGENT_CONNECTION_ARCHITECTURE.md).
