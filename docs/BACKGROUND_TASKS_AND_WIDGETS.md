@@ -8,7 +8,7 @@ The Agents screen can queue a prompt using WorkManager. Work is persisted by And
 
 - Prompt limit: 6,000 characters.
 - Provider responses are bounded to 2 MB.
-- Task history retains up to 20 terminal records; active tasks are never evicted to make room.
+- Task history is capped at 20 records. When it is full, the oldest terminal records are evicted first; active tasks are never evicted.
 - At most 10 tasks can be queued, running, or retrying at once; queueing/retrying beyond this limit is rejected.
 - Provider key, prompt, task title, and successful response are encrypted with the app's Android Keystore-backed AES-GCM key.
 - Background tasks do not automatically read workspace files or invoke workspace tools.
