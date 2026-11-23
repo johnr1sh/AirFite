@@ -82,11 +82,28 @@ object BackgroundTaskStore {
         }.getOrNull()
     }
 
+    fun queueRetry(context: Context, id: String): BackgroundTaskRecord = synchronized(lock) {
+        val current = readRecords(context)
+        val existing = current.firstOrNull { it.id == id } ?: throw IllegalArgumentException("Task not found.")
+        require(existing.status == "Failed") { "Only failed tasks can be retried." }
+        require(prefs(context).contains(INPUT_PREFIX + id)) { "Encrypted task input is no longer available." }
+        require(BackgroundTaskRecordPolicy.activeCount(current) < BackgroundTaskRecordPolicy.MAX_ACTIVE_TASKS) {
+            "AirFite already has ${BackgroundTaskRecordPolicy.MAX_ACTIVE_TASKS} active background tasks. Wait for one to finish before retrying."
+        }
+        val queued = existing.copy(status = "Queued", error = "", encryptedResult = "")
+        val merge = BackgroundTaskRecordPolicy.merge(current, queued)
+        val editor = prefs(context).edit().putString(RECORDS, encodeRecords(merge.records))
+        merge.removedIds.forEach { editor.remove(INPUT_PREFIX + it) }
+        editor.apply()
+        queued
+    }
+
     fun update(context: Context, record: BackgroundTaskRecord) = synchronized(lock) {
         val current = readRecords(context)
         val existing = current.firstOrNull { it.id == record.id } ?: return@synchronized
-        // Cancellation is final. A late worker callback must not resurrect a cancelled task.
-        if (existing.status == "Cancelled" && record.status != "Cancelled") return@synchronized
+        // Terminal records cannot be changed by stale worker callbacks.
+        if (existing.status == "Cancelled" || existing.status == "Completed") return@synchronized
+        if (existing.status == "Failed" && record.status != "Failed" && record.status != "Cancelled") return@synchronized
         val merge = BackgroundTaskRecordPolicy.merge(current, record)
         val editor = prefs(context).edit().putString(RECORDS, encodeRecords(merge.records))
         if (record.status == "Completed" || record.status == "Cancelled") editor.remove(INPUT_PREFIX + record.id)
