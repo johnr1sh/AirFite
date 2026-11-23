@@ -32,8 +32,12 @@ class BackgroundAgentWorker(context: Context, params: WorkerParameters) : Corout
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val id = inputData.getString(KEY_TASK_ID) ?: return@withContext Result.failure()
         val record = BackgroundTaskStore.list(applicationContext).firstOrNull { it.id == id } ?: return@withContext Result.failure()
+        if (record.status == "Cancelled" || isStopped) return@withContext Result.failure()
         val task = BackgroundTaskStore.input(applicationContext, id) ?: return@withContext Result.failure()
         BackgroundTaskStore.update(applicationContext, record.copy(status = "Running", error = ""))
+        if (isStopped || BackgroundTaskStore.list(applicationContext).firstOrNull { it.id == id }?.status == "Cancelled") {
+            return@withContext Result.failure()
+        }
         notifyUser(id, "Background task running", "AirFite is working on your task.")
 
         try {
@@ -62,11 +66,19 @@ class BackgroundAgentWorker(context: Context, params: WorkerParameters) : Corout
                 val answer = JSONObject(raw).optJSONArray("choices")?.optJSONObject(0)
                     ?.optJSONObject("message")?.optString("content")?.takeIf { it.isNotBlank() }
                     ?: throw IllegalStateException("Provider returned an empty response.")
+                if (isStopped || BackgroundTaskStore.list(applicationContext).firstOrNull { it.id == id }?.status == "Cancelled") {
+                    return@withContext Result.failure()
+                }
                 BackgroundTaskStore.update(applicationContext, record.copy(status = "Completed", encryptedResult = SecureKeyStore().encrypt(answer), error = ""))
-                notifyUser(id, "Background task completed", "Your response is ready in AirFite.")
+                if (BackgroundTaskStore.list(applicationContext).firstOrNull { it.id == id }?.status == "Completed") {
+                    notifyUser(id, "Background task completed", "Your response is ready in AirFite.")
+                }
             }
             Result.success()
         } catch (e: IOException) {
+            if (isStopped || BackgroundTaskStore.list(applicationContext).firstOrNull { it.id == id }?.status == "Cancelled") {
+                return@withContext Result.failure()
+            }
             if (runAttemptCount < MAX_RETRIES) {
                 BackgroundTaskStore.update(applicationContext, record.copy(status = "Retrying", error = "Network interrupted; retry scheduled."))
                 Result.retry()
@@ -76,6 +88,9 @@ class BackgroundAgentWorker(context: Context, params: WorkerParameters) : Corout
                 Result.failure()
             }
         } catch (e: Exception) {
+            if (isStopped || BackgroundTaskStore.list(applicationContext).firstOrNull { it.id == id }?.status == "Cancelled") {
+                return@withContext Result.failure()
+            }
             BackgroundTaskStore.update(applicationContext, record.copy(status = "Failed", error = (e.message ?: "Task failed").take(240)))
             notifyUser(id, "Background task failed", "Open AirFite to review the task.")
             Result.failure()
