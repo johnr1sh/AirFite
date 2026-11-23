@@ -122,8 +122,3 @@ class WorkspaceIgnoreRules private constructor(private val rules: List<Rule>) {
         }
     }
 }
-)
-            return Regex(out.toString())
-        }
-    }
-}
