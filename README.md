@@ -17,6 +17,7 @@ AirFite is an Android-first coding assistant with a user-authorized local worksp
 - Read-only tools: `workspace.list_files`, `workspace.read_file`, and `workspace.search_files`
 - Provider tool-call validation (IDs, registered schemas, required fields, argument types, and size bounds) plus bounded, valid-JSON tool results
 - File count, depth, and read-size limits; hidden and build/dependency folders excluded
+- Encrypted WorkManager background prompt tasks with retry, cancellation, bounded queue/history, and notifications
 - GitHub Actions debug APK build
 
 ## Credential security
