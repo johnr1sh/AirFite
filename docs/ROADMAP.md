@@ -54,6 +54,7 @@ Updated: 2026-11-23
 - [x] Root `.gitignore` filtering for workspace listing/search (ignore matcher tests); [ ] deeper context indexing with secret exclusion
 - [x] Validate provider tool-call envelopes against registered schemas (IDs, duplicate IDs, JSON object arguments, required fields, types, and bounded argument size)
 - [x] Keep oversized tool results valid JSON with explicit partial-preview metadata
+- [x] Unit tests for tool-call envelope/schema validation and result bounds
 - [ ] Retry/recover malformed provider responses without dispatching invalid calls
 
 ## Milestone 4 — Interoperability
