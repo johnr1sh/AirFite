@@ -9,6 +9,14 @@
 
 Newest first.
 
+## 2026-11-23 (background task persistence and cancellation hardening)
+- Added a pure Kotlin task-record retention policy and six tests covering active-status counting, upsert, oldest-terminal eviction, active-task preservation, and invalid limits.
+- Background task record/input writes now share synchronized, single-editor updates. The store caps active queued/running/retrying tasks at 10, retains at most 20 records when terminal records can be pruned, and cleans encrypted inputs for evicted/completed/cancelled tasks.
+- Retry admission is atomic with the state transition, preventing concurrent retries from exceeding the active-task cap. Cancelling persists a terminal state before WorkManager cancellation; late worker callbacks cannot overwrite cancellation or recreate deleted records.
+- Added cancellation checks before/after provider requests to avoid publishing results after cancellation. WorkManager may still finish an already-running HTTP call because cancellation does not forcibly terminate the synchronous OkHttp call.
+- Verification: pending CI for these changes. No local Android SDK/build is available in this run.
+
+
 ## 2026-11-23 (capabilities expansion)
 - Added guided provider setup with endpoint/key/model steps, validation, save-and-test flow, and model discovery.
 - Added recent-workspace switching, file-search empty states, and safer workspace change confirmation.
