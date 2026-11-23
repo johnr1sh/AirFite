@@ -68,6 +68,9 @@ object AgentToolCallValidator {
                 ?: return AgentToolCallValidation.Invalid("Provider requested an unavailable workspace tool.")
 
             val rawArguments = function.opt("arguments")
+            if (rawArguments is String && rawArguments.length > MAX_ARGUMENTS_CHARS) {
+                return AgentToolCallValidation.Invalid("Tool arguments exceed the size limit.")
+            }
             val argumentsText = when (rawArguments) {
                 null -> "{}"
                 is String -> rawArguments.ifBlank { "{}" }
