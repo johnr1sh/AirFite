@@ -41,12 +41,7 @@ object BackgroundTaskManager {
     }
 
     fun retry(context: Context, id: String) {
-        val record = BackgroundTaskStore.list(context).firstOrNull { it.id == id } ?: throw IllegalArgumentException("Task not found.")
-        require(BackgroundTaskStore.input(context, id) != null) { "Encrypted task input is no longer available." }
-        require(BackgroundTaskRecordPolicy.activeCount(BackgroundTaskStore.list(context)) < BackgroundTaskRecordPolicy.MAX_ACTIVE_TASKS) {
-            "AirFite already has ${BackgroundTaskRecordPolicy.MAX_ACTIVE_TASKS} active background tasks. Wait for one to finish before retrying."
-        }
-        BackgroundTaskStore.update(context, record.copy(status = "Queued", error = "", encryptedResult = ""))
+        val record = BackgroundTaskStore.queueRetry(context, id)
         val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
         val request = OneTimeWorkRequestBuilder<BackgroundAgentWorker>()
             .setInputData(workDataOf(BackgroundAgentWorker.KEY_TASK_ID to id))
@@ -63,6 +58,7 @@ object BackgroundTaskManager {
 
     fun cancel(context: Context, id: String) {
         val record = BackgroundTaskStore.list(context).firstOrNull { it.id == id } ?: return
+        if (!BackgroundTaskRecordPolicy.isActive(record.status)) return
         // Persist cancellation before signalling WorkManager so a late worker update cannot
         // overwrite the terminal state. The store also rejects updates to cancelled records.
         BackgroundTaskStore.update(context, record.copy(status = "Cancelled", error = ""))
