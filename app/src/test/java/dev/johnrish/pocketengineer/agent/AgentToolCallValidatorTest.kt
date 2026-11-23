@@ -8,17 +8,34 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AgentToolCallValidatorTest {
-    private val allowed = setOf("workspace.list_files", "workspace.read_file", "workspace.search_files")
+    private fun schema(properties: JSONObject = JSONObject(), required: JSONArray = JSONArray()) =
+        JSONObject().put("type", "object").put("properties", properties)
+            .put("required", required).put("additionalProperties", false)
 
-    private fun call(id: String = "call_1", name: String = "workspace.read_file", arguments: String = """{"path":"src/Main.kt"}""") =
-        JSONObject().put("id", id).put("type", "function").put(
-            "function", JSONObject().put("name", name).put("arguments", arguments)
+    private val schemas = mapOf(
+        "workspace.list_files" to schema(),
+        "workspace.read_file" to schema(
+            JSONObject().put("path", JSONObject().put("type", "string")),
+            JSONArray().put("path")
+        ),
+        "workspace.search_files" to schema(
+            JSONObject().put("query", JSONObject().put("type", "string")),
+            JSONArray().put("query")
         )
+    )
+
+    private fun call(
+        id: String = "call_1",
+        name: String = "workspace.read_file",
+        arguments: String = """{"path":"src/Main.kt"}"""
+    ) = JSONObject().put("id", id).put("type", "function").put(
+        "function", JSONObject().put("name", name).put("arguments", arguments)
+    )
 
     @Test
     fun acceptsRegisteredCallWithObjectArguments() {
         val result = AgentToolCallValidator.validate(
-            JSONArray().put(call()), allowed, maxCalls = 8
+            JSONArray().put(call()), schemas, maxCalls = 8
         )
         assertTrue(result is AgentToolCallValidation.Valid)
         val parsed = (result as AgentToolCallValidation.Valid).calls.single()
@@ -28,11 +45,11 @@ class AgentToolCallValidatorTest {
     }
 
     @Test
-    fun acceptsProviderObjectArgumentsAndEmptyArguments() {
+    fun acceptsProviderObjectArgumentsAndEmptyArgumentsForNoArgTool() {
         val objectArgs = call().put("function", JSONObject().put("name", "workspace.read_file")
             .put("arguments", JSONObject().put("path", "README.md")))
         val emptyArgs = call("call_2", "workspace.list_files", "")
-        val result = AgentToolCallValidator.validate(JSONArray().put(objectArgs).put(emptyArgs), allowed, 8)
+        val result = AgentToolCallValidator.validate(JSONArray().put(objectArgs).put(emptyArgs), schemas, 8)
         assertTrue(result is AgentToolCallValidation.Valid)
         val parsed = (result as AgentToolCallValidation.Valid).calls
         assertEquals("README.md", parsed[0].arguments.getString("path"))
@@ -40,26 +57,28 @@ class AgentToolCallValidatorTest {
     }
 
     @Test
-    fun rejectsMissingOrInvalidIds() {
+    fun rejectsMissingOrInvalidIdsAndNames() {
         val missing = call().put("id", "")
         val tooLong = call("x".repeat(AgentToolCallValidator.MAX_ID_LENGTH + 1))
         val control = call("call_1\n")
-        listOf(missing, tooLong, control).forEach {
-            val result = AgentToolCallValidator.validate(JSONArray().put(it), allowed, 8)
+        val paddedId = call(" call_1 ")
+        val paddedName = call().put("function", JSONObject().put("name", " workspace.read_file ").put("arguments", "{}"))
+        listOf(missing, tooLong, control, paddedId, paddedName).forEach {
+            val result = AgentToolCallValidator.validate(JSONArray().put(it), schemas, 8)
             assertTrue(result is AgentToolCallValidation.Invalid)
         }
     }
 
     @Test
     fun rejectsDuplicateIds() {
-        val result = AgentToolCallValidator.validate(JSONArray().put(call()).put(call()), allowed, 8)
+        val result = AgentToolCallValidator.validate(JSONArray().put(call()).put(call()), schemas, 8)
         assertEquals("Provider returned duplicate tool-call IDs.", (result as AgentToolCallValidation.Invalid).reason)
     }
 
     @Test
     fun rejectsUnknownToolName() {
         val result = AgentToolCallValidator.validate(
-            JSONArray().put(call(name = "workspace.delete_file")), allowed, 8
+            JSONArray().put(call(name = "workspace.delete_file")), schemas, 8
         )
         assertEquals("Provider requested an unavailable workspace tool.", (result as AgentToolCallValidation.Invalid).reason)
     }
@@ -69,7 +88,7 @@ class AgentToolCallValidatorTest {
         val noFunction = JSONObject().put("id", "call_1")
         val noName = call().put("function", JSONObject().put("arguments", "{}"))
         listOf(noFunction, noName).forEach {
-            assertTrue(AgentToolCallValidator.validate(JSONArray().put(it), allowed, 8) is AgentToolCallValidation.Invalid)
+            assertTrue(AgentToolCallValidator.validate(JSONArray().put(it), schemas, 8) is AgentToolCallValidation.Invalid)
         }
     }
 
@@ -79,16 +98,26 @@ class AgentToolCallValidatorTest {
         val arrayRoot = call(arguments = """["not","an","object"]""")
         val nonString = call().put("function", JSONObject().put("name", "workspace.read_file").put("arguments", JSONArray()))
         listOf(malformed, arrayRoot, nonString).forEach {
-            assertTrue(AgentToolCallValidator.validate(JSONArray().put(it), allowed, 8) is AgentToolCallValidation.Invalid)
+            assertTrue(AgentToolCallValidator.validate(JSONArray().put(it), schemas, 8) is AgentToolCallValidation.Invalid)
+        }
+    }
+
+    @Test
+    fun rejectsMissingRequiredFieldsWrongTypesAndExtraProperties() {
+        val missingRequired = call(arguments = "{}")
+        val wrongType = call(name = "workspace.search_files", arguments = """{"query":42}""")
+        val extraProperty = call(arguments = """{"path":"src/Main.kt","unexpected":true}""")
+        listOf(missingRequired, wrongType, extraProperty).forEach {
+            assertTrue(AgentToolCallValidator.validate(JSONArray().put(it), schemas, 8) is AgentToolCallValidation.Invalid)
         }
     }
 
     @Test
     fun rejectsOversizedArgumentsAndTooManyCalls() {
         val oversized = call(arguments = " ".repeat(AgentToolCallValidator.MAX_ARGUMENTS_CHARS + 1))
-        assertTrue(AgentToolCallValidator.validate(JSONArray().put(oversized), allowed, 8) is AgentToolCallValidation.Invalid)
+        assertTrue(AgentToolCallValidator.validate(JSONArray().put(oversized), schemas, 8) is AgentToolCallValidation.Invalid)
         val result = AgentToolCallValidator.validate(
-            JSONArray().put(call("a")).put(call("b")), allowed, maxCalls = 1
+            JSONArray().put(call("a")).put(call("b")), schemas, maxCalls = 1
         )
         assertEquals("Provider requested too many tools in one round.", (result as AgentToolCallValidation.Invalid).reason)
     }
