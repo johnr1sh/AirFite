@@ -4,7 +4,7 @@ import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 
-/** A provider tool call after basic structural validation. */
+/** A provider tool call after basic structural and schema validation. */
 data class ValidatedAgentToolCall(
     val id: String,
     val name: String,
@@ -19,9 +19,10 @@ sealed interface AgentToolCallValidation {
 /**
  * Validate provider-controlled tool-call envelopes before dispatch.
  *
- * This protects the local dispatcher from malformed IDs, unknown tools, non-object arguments,
- * duplicate IDs, and oversized argument payloads. It is not a substitute for each tool's own
- * argument validation or authorization checks.
+ * Only registered tools are accepted. The supported JSON Schema subset is deliberately small:
+ * object properties, required keys, additionalProperties, primitive/container types, enum,
+ * and string length bounds. Each workspace tool still performs its own authorization and
+ * domain-specific validation.
  */
 object AgentToolCallValidator {
     const val MAX_ID_LENGTH = 128
@@ -31,7 +32,7 @@ object AgentToolCallValidator {
 
     fun validate(
         calls: JSONArray,
-        registeredToolNames: Set<String>,
+        registeredToolSchemas: Map<String, JSONObject>,
         maxCalls: Int
     ): AgentToolCallValidation {
         if (maxCalls <= 0) return AgentToolCallValidation.Invalid("Tool-call limit is unavailable.")
@@ -45,8 +46,10 @@ object AgentToolCallValidator {
         for (index in 0 until calls.length()) {
             val call = calls.optJSONObject(index)
                 ?: return AgentToolCallValidation.Invalid("Provider returned a malformed tool call.")
-            val id = (call.opt("id") as? String)?.trim().orEmpty()
-            if (id.isEmpty() || id.length > MAX_ID_LENGTH || id.any(Char::isISOControl)) {
+            val rawId = call.opt("id") as? String
+                ?: return AgentToolCallValidation.Invalid("Provider returned a tool call with an invalid ID.")
+            val id = rawId.trim()
+            if (id.isEmpty() || id.length > MAX_ID_LENGTH || rawId != id || id.any { it.code < 0x20 || it.code == 0x7F }) {
                 return AgentToolCallValidation.Invalid("Provider returned a tool call with an invalid ID.")
             }
             if (!ids.add(id)) {
@@ -55,13 +58,14 @@ object AgentToolCallValidator {
 
             val function = call.optJSONObject("function")
                 ?: return AgentToolCallValidation.Invalid("Provider returned a tool call without a function.")
-            val name = (function.opt("name") as? String)?.trim().orEmpty()
-            if (name.isEmpty() || name.length > MAX_TOOL_NAME_LENGTH || name.any(Char::isISOControl)) {
+            val rawName = function.opt("name") as? String
+                ?: return AgentToolCallValidation.Invalid("Provider returned a tool call with an invalid name.")
+            val name = rawName.trim()
+            if (name.isEmpty() || name.length > MAX_TOOL_NAME_LENGTH || rawName != name || name.any { it.code < 0x20 || it.code == 0x7F }) {
                 return AgentToolCallValidation.Invalid("Provider returned a tool call with an invalid name.")
             }
-            if (name !in registeredToolNames) {
-                return AgentToolCallValidation.Invalid("Provider requested an unavailable workspace tool.")
-            }
+            val schema = registeredToolSchemas[name]
+                ?: return AgentToolCallValidation.Invalid("Provider requested an unavailable workspace tool.")
 
             val rawArguments = function.opt("arguments")
             val argumentsText = when (rawArguments) {
@@ -78,10 +82,63 @@ object AgentToolCallValidator {
             } catch (_: JSONException) {
                 return AgentToolCallValidation.Invalid("Tool arguments are not valid JSON.")
             }
+            val schemaError = validateArguments(arguments, schema)
+            if (schemaError != null) return AgentToolCallValidation.Invalid(schemaError)
             validated.add(ValidatedAgentToolCall(id, name, arguments))
         }
         return AgentToolCallValidation.Valid(validated.toList())
     }
+
+    private fun validateArguments(arguments: JSONObject, schema: JSONObject): String? {
+        if (schema.optString("type") != "object") return "Registered tool has an unsupported argument schema."
+        val properties = schema.optJSONObject("properties") ?: JSONObject()
+        val required = schema.optJSONArray("required") ?: JSONArray()
+        for (index in 0 until required.length()) {
+            val key = required.optString(index)
+            if (!arguments.has(key) || arguments.opt(key) == JSONObject.NULL) {
+                return "Tool arguments are missing a required field."
+            }
+        }
+        val allowAdditional = schema.optBoolean("additionalProperties", true)
+        val keys = arguments.keys()
+        while (keys.hasNext()) {
+            val key = keys.next()
+            val value = arguments.opt(key)
+            val property = properties.optJSONObject(key)
+            if (property == null) {
+                if (!allowAdditional) return "Tool arguments contain an unsupported field."
+                continue
+            }
+            if (!matchesType(value, property.optString("type"))) {
+                return "Tool argument type does not match the registered schema."
+            }
+            if (value is String) {
+                val minLength = property.optInt("minLength", 0)
+                val maxLength = property.optInt("maxLength", Int.MAX_VALUE)
+                if (value.length < minLength || value.length > maxLength) {
+                    return "Tool argument string length is outside the registered bounds."
+                }
+            }
+            val enumValues = property.optJSONArray("enum")
+            if (enumValues != null && !containsValue(enumValues, value)) {
+                return "Tool argument is not one of the allowed values."
+            }
+        }
+        return null
+    }
+
+    private fun matchesType(value: Any?, expected: String): Boolean = when (expected) {
+        "string" -> value is String
+        "boolean" -> value is Boolean
+        "integer" -> value is Number && value.toDouble().isFinite() && value.toDouble() % 1.0 == 0.0
+        "number" -> value is Number && value.toDouble().isFinite()
+        "object" -> value is JSONObject
+        "array" -> value is JSONArray
+        else -> false
+    }
+
+    private fun containsValue(values: JSONArray, value: Any?): Boolean =
+        (0 until values.length()).any { index -> values.opt(index) == value }
 
     /**
      * Keep the provider-facing tool result valid JSON even when the original result is too large.
