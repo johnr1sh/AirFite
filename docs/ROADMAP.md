@@ -1,6 +1,6 @@
 # AirFite Engineering Roadmap
 
-Updated: 2026-11-22
+Updated: 2026-11-23
 
 ## Active focus — product foundation and agent connectivity
 - [x] Establish secure external-agent connection architecture and threat model (design baseline)
@@ -27,6 +27,7 @@ Updated: 2026-11-22
 - [x] Keystore-backed AES-GCM provider key storage and plaintext-preference migration
 - [x] Mask API key input and surface secure-save errors
 - [x] Skip hidden and common generated/dependency folders
+- [x] Honor bounded root `.gitignore` rules during workspace listing and search (comments, negation, anchoring, directory-only, `*`, `?`, `**`)
 - [x] Explicit, bounded single-file context attachment to chat
 - [x] Sensitive filename and common credential-pattern attachment checks (now includes hyphenated `sk-proj-`/`sk-ant-` keys, GitHub and Slack tokens)
 - [x] Treat attached file content as untrusted input in model instructions
@@ -50,7 +51,7 @@ Updated: 2026-11-22
 - [ ] Planner/executor/reviewer cycle with bounded iterations
 - [ ] Patch proposals, diff preview, backups, undo
 - [ ] Explicit approval for write/delete/command tools
-- [ ] Context indexing with ignore rules and secret exclusion
+- [x] Root `.gitignore` filtering for workspace listing/search (ignore matcher tests); [ ] deeper context indexing with secret exclusion
 - [ ] Tool-call schema validation and malformed-response recovery
 
 ## Milestone 4 — Interoperability
