@@ -326,8 +326,14 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         } else prompt
         messages.put(JSONObject().put("role", "user").put("content", userContent))
         val toolManifest = workspaceTools?.toolManifest()
-        val registeredToolNames = toolManifest?.let { manifest ->
-            (0 until manifest.length()).mapNotNull { manifest.optJSONObject(it)?.optString("name")?.takeIf(String::isNotBlank) }.toSet()
+        val registeredToolSchemas = toolManifest?.let { manifest ->
+            (0 until manifest.length()).mapNotNull { index ->
+                manifest.optJSONObject(index)?.let { tool ->
+                    val name = tool.optString("name").takeIf(String::isNotBlank)
+                    val schema = tool.optJSONObject("inputSchema")
+                    if (name != null && schema != null) name to schema else null
+                }
+            }.toMap()
         }.orEmpty()
         val tools = toolManifest?.let { manifest ->
             JSONArray().apply {
@@ -360,7 +366,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 if (round == MAX_AGENT_TOOL_ROUNDS) throw IllegalStateException("Agent tool-call limit reached. Please narrow your request.")
                 val validatedCalls = when (val validation = AgentToolCallValidator.validate(
-                    calls, registeredToolNames, MAX_AGENT_TOOL_CALLS_PER_ROUND
+                    calls, registeredToolSchemas, MAX_AGENT_TOOL_CALLS_PER_ROUND
                 )) {
                     is AgentToolCallValidation.Valid -> validation.calls
                     is AgentToolCallValidation.Invalid -> throw IllegalStateException(validation.reason)
