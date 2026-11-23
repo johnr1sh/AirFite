@@ -140,4 +140,35 @@ class AgentToolCallValidatorTest {
         assertTrue(parsed.getInt("originalChars") > parsed.getString("preview").length)
         assertFalse(parsed.getString("message").isBlank())
     }
+
+    @Test
+    fun enforcesNumericBounds() {
+        val schema = schema(
+            JSONObject().put("count", JSONObject().put("type", "integer").put("minimum", 1).put("maximum", 5)),
+            JSONArray().put("count")
+        )
+        val tools = mapOf("test.bounded" to schema)
+        fun callFor(value: String) = call(name = "test.bounded", arguments = """{"count":$value}""")
+        assertTrue(AgentToolCallValidator.validate(JSONArray().put(callFor("1")), tools, 1) is AgentToolCallValidation.Valid)
+        assertTrue(AgentToolCallValidator.validate(JSONArray().put(callFor("5")), tools, 1) is AgentToolCallValidation.Valid)
+        assertTrue(AgentToolCallValidator.validate(JSONArray().put(callFor("0")), tools, 1) is AgentToolCallValidation.Invalid)
+        assertTrue(AgentToolCallValidator.validate(JSONArray().put(callFor("6")), tools, 1) is AgentToolCallValidation.Invalid)
+    }
+
+    @Test
+    fun enforcesArrayBoundsAndItemTypesAndLengths() {
+        val schema = schema(
+            JSONObject().put("labels", JSONObject().put("type", "array")
+                .put("minItems", 1).put("maxItems", 2)
+                .put("items", JSONObject().put("type", "string").put("maxLength", 4))),
+            JSONArray().put("labels")
+        )
+        val tools = mapOf("test.labels" to schema)
+        fun callFor(args: String) = call(name = "test.labels", arguments = args)
+        assertTrue(AgentToolCallValidator.validate(JSONArray().put(callFor("""{"labels":["ui","api"]}""")), tools, 1) is AgentToolCallValidation.Valid)
+        assertTrue(AgentToolCallValidator.validate(JSONArray().put(callFor("""{"labels":[]}""")), tools, 1) is AgentToolCallValidation.Invalid)
+        assertTrue(AgentToolCallValidator.validate(JSONArray().put(callFor("""{"labels":["a","b","c"]}""")), tools, 1) is AgentToolCallValidation.Invalid)
+        assertTrue(AgentToolCallValidator.validate(JSONArray().put(callFor("""{"labels":["toolong"]}""")), tools, 1) is AgentToolCallValidation.Invalid)
+    }
+
 }
