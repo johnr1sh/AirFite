@@ -52,7 +52,9 @@ Updated: 2026-11-23
 - [ ] Patch proposals, diff preview, backups, undo
 - [ ] Explicit approval for write/delete/command tools
 - [x] Root `.gitignore` filtering for workspace listing/search (ignore matcher tests); [ ] deeper context indexing with secret exclusion
-- [ ] Tool-call schema validation and malformed-response recovery
+- [x] Validate provider tool-call envelopes (IDs, registered names, duplicate IDs, JSON object arguments, and bounded argument size)
+- [x] Keep oversized tool results valid JSON with explicit partial-preview metadata
+- [ ] Retry/recover malformed provider responses without dispatching invalid calls
 
 ## Milestone 4 — Interoperability
 - [ ] MCP server transport for scoped workspace tools
@@ -68,6 +70,6 @@ Updated: 2026-11-23
 - [ ] Accessibility, keyboard navigation, tablet layouts, UI tests
 
 ## Current constraints
-Workspace tool descriptors are MCP-style, but no MCP network transport or external AI connection is implemented yet. File access is read-only. Workspace content is not automatically sent to the model. Build verification is delegated to CI; report actual workflow status before claiming success.
+Workspace tool descriptors are MCP-style, but no MCP network transport or external AI connection is implemented yet. File access is read-only. Provider tool-call envelopes are validated before dispatch; malformed calls fail closed, and oversized tool results are returned as bounded valid JSON with partial-preview metadata. Workspace content is not automatically sent to the model. Build verification is delegated to CI; report actual workflow status before claiming success.
 
 Architecture decisions and security gates for external agent connections are documented in [AGENT_CONNECTION_ARCHITECTURE.md](AGENT_CONNECTION_ARCHITECTURE.md).
