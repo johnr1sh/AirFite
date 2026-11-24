@@ -1,6 +1,6 @@
 # AirFite Engineering Roadmap
 
-Updated: 2026-11-23
+Updated: 2026-11-24
 
 ## Active focus — product foundation and agent connectivity
 - [x] Establish secure external-agent connection architecture and threat model (design baseline)
@@ -29,7 +29,7 @@ Updated: 2026-11-23
 - [x] Skip hidden and common generated/dependency folders
 - [x] Honor bounded root `.gitignore` rules during workspace listing and search (comments, negation, anchoring, directory-only, `*`, `?`, `**`)
 - [x] Explicit, bounded single-file context attachment to chat
-- [x] Sensitive filename and common credential-pattern attachment checks (now includes hyphenated `sk-proj-`/`sk-ant-` keys, GitHub and Slack tokens)
+- [x] Sensitive filename and common credential-pattern attachment checks (dotenv variants, credential config files, SSH key names, GitLab/Google/Stripe/JWT patterns, and assignment-style secrets)
 - [x] Treat attached file content as untrusted input in model instructions
 - [x] Unit tests for path validation (`workspace/WorkspacePath`) and secret/sensitive-file guard
 - [ ] Unit tests for tool dispatch (blocked on an Android-free workspace abstraction)
