@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import dev.johnrish.pocketengineer.workspace.WorkspacePath
 import dev.johnrish.pocketengineer.workspace.WorkspaceIgnoreRules
+import dev.johnrish.pocketengineer.workspace.SensitiveFileGuard
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
@@ -20,6 +21,7 @@ class WorkspaceTools(private val context: Context, private val treeUri: Uri) {
         const val MAX_SEARCH_FILES = 100
         const val MAX_SEARCH_FILE_BYTES = 32 * 1024
         const val MAX_SEARCH_TOTAL_BYTES = 2 * 1024 * 1024
+        const val MAX_SEARCH_QUERY_CHARS = 256
         const val MAX_IGNORE_FILE_BYTES = 32 * 1024
     }
 
@@ -78,7 +80,15 @@ class WorkspaceTools(private val context: Context, private val treeUri: Uri) {
     fun readFile(uri: Uri): String {
         val entry = listFiles().firstOrNull { it.uri == uri && !it.isDirectory }
             ?: throw SecurityException("File is outside the selected workspace or no longer exists.")
-        return readEntry(entry)
+        return readAgentReadableEntry(entry)
+    }
+
+    /** Applies credential safeguards to both UI previews and AI tool reads. */
+    private fun readAgentReadableEntry(entry: WorkspaceEntry): String {
+        SensitiveFileGuard.requireSafePath(entry.relativePath)
+        val content = readEntry(entry)
+        SensitiveFileGuard.requireSafeContent(content)
+        return content
     }
 
     private fun readEntry(entry: WorkspaceEntry, maxBytes: Int = MAX_TEXT_BYTES): String {
@@ -103,12 +113,15 @@ class WorkspaceTools(private val context: Context, private val treeUri: Uri) {
 
     fun search(query: String): List<String> {
         val needle = query.trim()
+        if (needle.length > MAX_SEARCH_QUERY_CHARS) {
+            throw IllegalArgumentException("Search query exceeds the $MAX_SEARCH_QUERY_CHARS character limit.")
+        }
         if (needle.isEmpty()) return emptyList()
         var inspectedBytes = 0L
         var inspectedFiles = 0
         val matches = mutableListOf<String>()
         for (entry in listFiles()) {
-            if (entry.isDirectory || entry.size > MAX_SEARCH_FILE_BYTES) continue
+            if (entry.isDirectory || SensitiveFileGuard.isSensitivePath(entry.relativePath) || entry.size > MAX_SEARCH_FILE_BYTES) continue
             if (inspectedFiles >= MAX_SEARCH_FILES || inspectedBytes >= MAX_SEARCH_TOTAL_BYTES) break
             inspectedFiles++
             inspectedBytes += entry.size.coerceAtLeast(0)
@@ -136,7 +149,8 @@ class WorkspaceTools(private val context: Context, private val treeUri: Uri) {
         JSONObject().put("name", "workspace.search_files")
             .put("description", "Search text in eligible workspace files.")
             .put("inputSchema", JSONObject().put("type", "object")
-                .put("properties", JSONObject().put("query", JSONObject().put("type", "string")))
+                .put("properties", JSONObject().put("query", JSONObject().put("type", "string")
+                    .put("minLength", 1).put("maxLength", MAX_SEARCH_QUERY_CHARS)))
                 .put("required", JSONArray().put("query")).put("additionalProperties", false))
     )
 
@@ -150,7 +164,7 @@ class WorkspaceTools(private val context: Context, private val treeUri: Uri) {
             // Exact match against the SAF listing is the actual access check; parse() only rejects unsafe syntax.
             val entry = listFiles().firstOrNull { it.relativePath == path && !it.isDirectory }
                 ?: throw SecurityException("Path is not within the selected workspace.")
-            JSONObject().put("path", path).put("content", readEntry(entry))
+            JSONObject().put("path", path).put("content", readAgentReadableEntry(entry))
         }
         "workspace.search_files" -> JSONObject().put("matches", JSONArray(search(arguments.optString("query"))))
         else -> throw IllegalArgumentException("Unknown tool: $name")
