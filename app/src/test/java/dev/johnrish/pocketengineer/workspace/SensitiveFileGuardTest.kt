@@ -51,4 +51,38 @@ class SensitiveFileGuardTest {
         assertFalse(SensitiveFileGuard.containsSecret("the sk-8 setting and ghp_short are fine"))
         assertFalse(SensitiveFileGuard.containsSecret("AKIA is a prefix, but this is not a key"))
     }
+    @Test
+    fun flagsEnvironmentVariantsAndCommonCredentialStores() {
+        listOf(
+            ".env.production", "config/.env.local", ".npmrc", ".pypirc", ".netrc",
+            ".git-credentials", "ssh/id_rsa", "ssh/id_ed25519", "certs/client.p12",
+            "signing/release.keystore", "config/dockerconfig.json", "settings/api-key.json"
+        ).forEach { assertTrue("should flag '$it'", SensitiveFileGuard.isSensitivePath(it)) }
+    }
+
+    @Test
+    fun rejectsSensitivePathsBeforeReadingContent() {
+        val error = org.junit.Assert.assertThrows(SecurityException::class.java) {
+            SensitiveFileGuard.requireSafePath("config/.env.production")
+        }
+        assertEquals(SensitiveFileGuard.SENSITIVE_PATH_MESSAGE, error.message)
+    }
+
+    @Test
+    fun rejectsCredentialPatternsInOtherwiseOrdinaryFiles() {
+        val content = "const providerKey = \"sk-proj-" + "Ab1_".repeat(8) + "\""
+        val error = org.junit.Assert.assertThrows(SecurityException::class.java) {
+            SensitiveFileGuard.requireSafeToShare("src/ProviderConfig.kt", content)
+        }
+        assertEquals(SensitiveFileGuard.SENSITIVE_CONTENT_MESSAGE, error.message)
+    }
+
+    @Test
+    fun allowsOrdinarySourceContentToBeShared() {
+        SensitiveFileGuard.requireSafeToShare(
+            "app/src/main/Main.kt",
+            "fun main() { println(\"hello\") }"
+        )
+    }
+
 }
