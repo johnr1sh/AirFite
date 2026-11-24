@@ -12,9 +12,9 @@ AirFite is an Android-first coding assistant with a user-authorized local worksp
 - Jetpack Compose Android app and OpenAI-compatible provider settings
 - Android Storage Access Framework workspace folder selection
 - Scoped file listing, text preview, and search
-- Explicit single-file context attachment to chat (64 KB limit; sensitive-name and common secret-pattern checks)
+- Explicit single-file context attachment to chat (64 KB limit; sensitive filename and credential-pattern checks)
 - Transport-neutral workspace tool registry with MCP-style descriptors
-- Read-only tools: `workspace.list_files`, `workspace.read_file`, and `workspace.search_files`
+- Read-only tools: `workspace.list_files`, `workspace.read_file`, and `workspace.search_files` (`read_file` blocks likely credential paths and recognized secret content; search queries are capped at 256 characters)
 - Provider tool-call validation (IDs, registered schemas, required fields, argument types, and size bounds) plus bounded, valid-JSON tool results
 - File count, depth, and read-size limits; hidden and build/dependency folders excluded
 - Encrypted WorkManager background prompt tasks with retry, cancellation, bounded queue/history, and notifications
@@ -24,7 +24,7 @@ AirFite is an Android-first coding assistant with a user-authorized local worksp
 Provider keys are encrypted using a key stored in Android Keystore. Legacy plaintext preferences are migrated on first load where possible. The key field is masked in the UI.
 
 ## Workspace security
-AirFite only accesses the folder selected through Android's document picker. The current milestone exposes read-only tools; it does not advertise write, delete, or shell tools. Workspace content is never auto-sent. Users can explicitly attach a selected file to the next message; file context is capped at 64 KB and common secret patterns are blocked. Attached content is treated as untrusted data.
+AirFite only accesses the folder selected through Android's document picker. The current milestone exposes read-only tools; it does not advertise write, delete, or shell tools. Workspace content is never bulk-sent automatically. The agent can request individual files through the read-only workspace tool, but likely credential paths and recognized credential patterns are blocked before content is returned. Conventional `.env.example`, `.env.sample`, and `.env.template` files may be read, but their contents are still scanned. Explicit chat attachments remain capped at 64 KB. All scanning is heuristic and cannot guarantee that every secret is detected. Workspace content is treated as untrusted data.
 
 ## Build
 Open the repository root in Android Studio with JDK 17 and Android SDK 35, or run `gradle assembleDebug`. The CI workflow builds and uploads a debug APK artifact.
