@@ -44,7 +44,8 @@ class WorkspaceTools(private val context: Context, private val treeUri: Uri) {
         for (child in folder.listFiles().sortedBy { it.name?.lowercase().orEmpty() }) {
             if (output.size >= MAX_FILES) break
             val name = child.name ?: continue
-            if (name.startsWith(".") || name in setOf("node_modules", "build", ".git", ".gradle")) continue
+            val safeDotEnvTemplate = SensitiveFileGuard.isSafeDotEnvTemplateName(name)
+            if ((name.startsWith(".") && !safeDotEnvTemplate) || name in setOf("node_modules", "build", ".git", ".gradle")) continue
             val path = if (parent.isEmpty()) name else "$parent/$name"
             if (ignoreRules.isIgnored(path, child.isDirectory)) continue
             output.add(WorkspaceEntry(name, child.uri, child.isDirectory, child.length(), path))
