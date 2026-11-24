@@ -12,15 +12,16 @@ object SensitiveFileGuard {
         "This file appears to contain a credential, so AirFite will not share it with the agent."
 
     private val sensitiveNameParts = listOf(
-        "secret", "credential", "private", "token", "password", "passwd",
-        "apikey", "api_key", "api-key", "id_rsa", "id_ed25519", "id_ecdsa", "id_dsa", "keystore"
+        "secret", "credential", "private", "token", "password", "passwd"
     )
     private val sensitiveSuffixes = listOf(
-        ".env", ".pem", ".key", ".p12", ".pfx", ".jks", ".keystore", ".mobileprovision"
+        ".pem", ".key", ".p12", ".pfx", ".jks", ".keystore", ".keychain", ".mobileprovision"
     )
     private val sensitiveExactNames = setOf(
-        ".npmrc", ".pypirc", ".netrc", ".git-credentials", "dockerconfig.json"
+        ".envrc", ".netrc", ".npmrc", ".pypirc", ".git-credentials",
+        "id_rsa", "id_dsa", "id_ecdsa", "id_ed25519", "id_ed25519_sk", "dockerconfig.json"
     )
+    private val safeDotEnvTemplates = setOf(".env.example", ".env.sample", ".env.template")
 
     private val secretPattern = Regex(
         listOf(
@@ -31,21 +32,42 @@ object SensitiveFileGuard {
             """\bsk-[A-Za-z0-9][A-Za-z0-9_-]{19,}""",
             """\bgh[pousr]_[A-Za-z0-9]{36,}\b""",
             """\bgithub_pat_[A-Za-z0-9_]{22,}\b""",
-            """\bxox[abprs]-[A-Za-z0-9-]{10,}"""
+            """\bxox[abprs]-[A-Za-z0-9-]{10,}""",
+            // GitLab PATs and Google OAuth client secrets.
+            """\bglpat-[A-Za-z0-9_-]{20,}\b""",
+            """\bGOCSPX-[A-Za-z0-9_-]{20,}\b""",
+            // Stripe secret/restricted keys; public pk_ keys are intentionally excluded.
+            """\b(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{16,}\b""",
+            // JWT-like values; this is a heuristic, not JWT signature validation.
+            """\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b"""
         ).joinToString("|")
     )
 
+    private val secretAssignmentPattern = Regex(
+        """(?i)(?:^|[^A-Za-z0-9])(?:password|passwd|passphrase|secret(?:[_-]?key)?|api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|private[_-]?key|db[_-]?password)\s*[:=]\s*["']?([^\s"' ,;]{8,})"""
+    )
+    private val placeholderValuePattern = Regex(
+        """(?i)^(?:changeme|change[_-]?me|example(?:[_-].*)?|sample(?:[_-].*)?|placeholder|redacted|your(?:[_-].*)?|xxx+|\*{4,}|<[^>]+>|\$\{[^}]+})$"""
+    )
+
     fun isSensitivePath(path: String): Boolean {
-        val segments = path.replace('\\', '/').lowercase().split('/')
-        return segments.any { segment ->
-            segment.startsWith(".env") ||
-                segment in sensitiveExactNames ||
-                sensitiveSuffixes.any(segment::endsWith) ||
-                sensitiveNameParts.any(segment::contains)
+        return path.replace('\\', '/').split('/').any { segment ->
+            val name = segment.lowercase()
+            name in sensitiveExactNames ||
+                ((name == ".env" || name.startsWith(".env.") || name.endsWith(".env")) &&
+                    name !in safeDotEnvTemplates) ||
+                sensitiveSuffixes.any(name::endsWith) ||
+                sensitiveNameParts.any(name::contains)
         }
     }
 
-    fun containsSecret(content: String): Boolean = secretPattern.containsMatchIn(content)
+    fun containsSecret(content: String): Boolean {
+        if (secretPattern.containsMatchIn(content)) return true
+        return secretAssignmentPattern.findAll(content).any { match ->
+            val value = match.groupValues.getOrNull(1).orEmpty()
+            value.isNotBlank() && !placeholderValuePattern.matches(value)
+        }
+    }
 
     /** Reject a likely credential path before opening it. */
     fun requireSafePath(path: String) {
