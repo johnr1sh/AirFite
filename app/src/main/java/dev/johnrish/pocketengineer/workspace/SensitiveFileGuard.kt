@@ -1,12 +1,26 @@
 package dev.johnrish.pocketengineer.workspace
 
 /**
- * Heuristics that keep credential-looking files out of AI requests. Best-effort only: a pass here
- * does not prove a file is free of secrets, so attachments stay explicit, bounded user actions.
+ * Best-effort credential safeguards for files that may be shown to or shared with an AI agent.
+ * These heuristics deliberately fail closed for likely credential files. A clean result does not
+ * prove arbitrary content is secret-free, so callers must keep file access explicit and bounded.
  */
 object SensitiveFileGuard {
-    private val sensitiveNameParts = listOf("secret", "credential", "private", "token")
-    private val sensitiveSuffixes = listOf(".env", ".pem", ".key")
+    const val SENSITIVE_PATH_MESSAGE =
+        "This file name indicates it may contain credentials, so AirFite will not share it with the agent."
+    const val SENSITIVE_CONTENT_MESSAGE =
+        "This file appears to contain a credential, so AirFite will not share it with the agent."
+
+    private val sensitiveNameParts = listOf(
+        "secret", "credential", "private", "token", "password", "passwd",
+        "apikey", "api_key", "api-key", "id_rsa", "id_ed25519", "id_ecdsa", "id_dsa", "keystore"
+    )
+    private val sensitiveSuffixes = listOf(
+        ".env", ".pem", ".key", ".p12", ".pfx", ".jks", ".keystore", ".mobileprovision"
+    )
+    private val sensitiveExactNames = setOf(
+        ".npmrc", ".pypirc", ".netrc", ".git-credentials", "dockerconfig.json"
+    )
 
     private val secretPattern = Regex(
         listOf(
@@ -22,9 +36,29 @@ object SensitiveFileGuard {
     )
 
     fun isSensitivePath(path: String): Boolean {
-        val lower = path.lowercase()
-        return sensitiveSuffixes.any(lower::endsWith) || sensitiveNameParts.any(lower::contains)
+        val segments = path.replace('\\', '/').lowercase().split('/')
+        return segments.any { segment ->
+            segment.startsWith(".env") ||
+                segment in sensitiveExactNames ||
+                sensitiveSuffixes.any(segment::endsWith) ||
+                sensitiveNameParts.any(segment::contains)
+        }
     }
 
     fun containsSecret(content: String): Boolean = secretPattern.containsMatchIn(content)
+
+    /** Reject a likely credential path before opening it. */
+    fun requireSafePath(path: String) {
+        if (isSensitivePath(path)) throw SecurityException(SENSITIVE_PATH_MESSAGE)
+    }
+
+    /** Reject recognized credential material after a bounded read. */
+    fun requireSafeContent(content: String) {
+        if (containsSecret(content)) throw SecurityException(SENSITIVE_CONTENT_MESSAGE)
+    }
+
+    fun requireSafeToShare(path: String, content: String) {
+        requireSafePath(path)
+        requireSafeContent(content)
+    }
 }
