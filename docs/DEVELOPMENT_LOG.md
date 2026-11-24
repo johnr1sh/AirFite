@@ -16,6 +16,14 @@
 
 Newest first.
 
+## 2026-11-24 (workspace credential read safeguards)
+- Applied sensitive-path checks before opening files and credential-content checks after bounded reads, covering both workspace previews and the agent's `workspace.read_file` tool.
+- Expanded path detection for dotenv variants, SSH private-key names, common credential stores, API-key names, and keystore formats. Conventional `.env.example`, `.env.sample`, and `.env.template` files remain readable, but their contents are still scanned.
+- Added best-effort detection for AWS, Google, OpenAI/Anthropic, GitHub, Slack, GitLab, Stripe, JWT-like, and common credential-assignment patterns, with common placeholders excluded.
+- Sensitive-looking paths are omitted from workspace search; search query length is capped at 256 characters and declared in the tool schema.
+- Added regression tests for path variants, provider tokens, assignment patterns, placeholders, and the read-sharing policy.
+- Local Kotlin harness: all 11 credential-guard test methods passed. Full Android Gradle tests, lint, and APK assembly are pending GitHub Actions for the pushed commit.
+
 ## 2026-11-23 (background task persistence and cancellation hardening)
 - Added a pure Kotlin task-record retention policy and six tests covering active-status counting, upsert, oldest-terminal eviction, active-task preservation, and invalid limits.
 - Background task record/input writes now share synchronized, single-editor updates. The store caps active queued/running/retrying tasks at 10, retains at most 20 records when terminal records can be pruned, and cleans encrypted inputs for evicted/completed/cancelled tasks.
