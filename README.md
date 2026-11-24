@@ -12,7 +12,7 @@ AirFite is an Android-first coding assistant with a user-authorized local worksp
 - Jetpack Compose Android app and OpenAI-compatible provider settings
 - Android Storage Access Framework workspace folder selection
 - Scoped file listing, text preview, and search
-- Explicit single-file context attachment to chat (64 KB limit; sensitive-name and common secret-pattern checks)
+- Explicit single-file context attachment to chat (64 KB limit; sensitive-name and credential filename/content heuristics (dotenv variants, SSH private keys, provider tokens, JWTs, and credential assignments; best-effort only))
 - Transport-neutral workspace tool registry with MCP-style descriptors
 - Read-only tools: `workspace.list_files`, `workspace.read_file`, and `workspace.search_files`
 - Provider tool-call validation (IDs, registered schemas, required fields, argument types, and size bounds) plus bounded, valid-JSON tool results
