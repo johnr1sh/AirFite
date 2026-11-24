@@ -23,6 +23,10 @@ class SensitiveFileGuardTest {
             "README.md", "app/src/main/Main.kt", "docs/ROADMAP.md",
             ".env.example", ".env.sample", ".env.template", "public-key.pem.txt"
         ).forEach { assertFalse("should allow '$it'", SensitiveFileGuard.isSensitivePath(it)) }
+        listOf(".env.example", ".env.sample", ".env.template").forEach {
+            assertTrue(SensitiveFileGuard.isSafeDotEnvTemplateName(it))
+        }
+        assertFalse(SensitiveFileGuard.isSafeDotEnvTemplateName(".env.production"))
     }
 
     @Test
