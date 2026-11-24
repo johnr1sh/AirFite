@@ -29,7 +29,7 @@ Updated: 2026-11-24
 - [x] Skip hidden and common generated/dependency folders
 - [x] Honor bounded root `.gitignore` rules during workspace listing and search (comments, negation, anchoring, directory-only, `*`, `?`, `**`)
 - [x] Explicit, bounded single-file context attachment to chat
-- [x] Sensitive filename and credential-pattern safeguards for explicit attachments, workspace previews, and agent file reads (including `.env.*`, common credential stores, private-key files, provider keys, GitHub and Slack tokens)
+- [x] Sensitive filename and credential-pattern safeguards for explicit attachments, workspace previews, and agent file reads (dotenv variants except conventional templates, SSH/private-key files, credential stores, provider tokens, JWT-like values, and assignment-style secrets)
 - [x] Treat attached file content as untrusted input in model instructions
 - [x] Unit tests for path validation (`workspace/WorkspacePath`) and secret/sensitive-file guard
 - [ ] Unit tests for tool dispatch (blocked on an Android-free workspace abstraction)
