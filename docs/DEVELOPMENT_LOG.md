@@ -1,3 +1,10 @@
+## 2026-11-24 (credential attachment guard hardening)
+- Expanded sensitive path detection to cover dotenv variants, common credential config files, SSH private-key filenames, and additional key-store formats. Explicitly allow conventional dotenv template filenames; content scanning still applies.
+- Added conservative content detection for GitLab PATs, Google OAuth secrets, Stripe secret/restricted keys, JWTs, and common credential assignments while allowing obvious placeholders.
+- Added regression cases for previously missed filenames/token formats and placeholder false positives.
+- Research: Android security guidance emphasizes minimizing exposure of sensitive user data. AirFite keeps file context explicit and bounded and uses best-effort local heuristics rather than treating scanning as proof of safety.
+- Validation: reviewed source/test changes; Android Gradle build and JUnit execution are unavailable in this environment.
+
 ## 2026-11-24 (background HTTP cancellation and transient retry policy)
 - Replaced the background worker's blocking OkHttp execution with a cancellable callback adapter using `suspendCancellableCoroutine`; WorkManager cancellation now cancels the underlying call and closes a response if callback delivery races cancellation.
 - Retry network I/O failures and HTTP 408, 425, 429, and 5xx through the existing bounded exponential WorkManager backoff; permanent HTTP errors fail immediately.
