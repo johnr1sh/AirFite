@@ -44,10 +44,10 @@ object SensitiveFileGuard {
     )
 
     private val secretAssignmentPattern = Regex(
-        """(?i)(?:^|[^A-Za-z0-9])(?:password|passwd|passphrase|secret(?:[_-]?key)?|api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|private[_-]?key|db[_-]?password)\s*[:=]\s*["']?([^\s"' ,;]{8,})"""
+        """(?i)(?:^|[^A-Za-z0-9])(?:password|passwd|passphrase|secret(?:[_-]?key)?|api[_-]?key|api[_-]?token|token|auth[_-]?token|access[_-]?token|refresh[_-]?token|client[_-]?secret|private[_-]?key|db[_-]?password)\\s*[:=]\\s*(?:"([^"\\r\\n]{8,})"|'([^'\\r\\n]{8,})'|([^\\s"' ,;]{8,}))"""
     )
     private val placeholderValuePattern = Regex(
-        """(?i)^(?:changeme|change[_-]?me|example(?:[_-].*)?|sample(?:[_-].*)?|placeholder|redacted|your(?:[_-].*)?|xxx+|\*{4,}|<[^>]+>|\$\{[^}]+})$"""
+        """(?i)^(?:changeme|change[_-]?me|example(?:[\\s_-].*)?|sample(?:[\\s_-].*)?|placeholder|redacted|your(?:[\\s_-].*)?|xxx+|\\*{4,}|<[^>]+>|\\$\\{[^}]+})$"""
     )
 
     fun isSensitivePath(path: String): Boolean {
@@ -64,7 +64,9 @@ object SensitiveFileGuard {
     fun containsSecret(content: String): Boolean {
         if (secretPattern.containsMatchIn(content)) return true
         return secretAssignmentPattern.findAll(content).any { match ->
-            val value = match.groupValues.getOrNull(1).orEmpty()
+            val value = (1..3).firstNotNullOfOrNull { index ->
+                match.groupValues.getOrNull(index)?.takeIf(String::isNotBlank)
+            }.orEmpty()
             value.isNotBlank() && !placeholderValuePattern.matches(value)
         }
     }
