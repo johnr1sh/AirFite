@@ -37,7 +37,7 @@ object SensitiveFileGuard {
         """(?i)\b(?:password|passwd|passphrase|secret|api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|private[_-]?key)\b\s*[:=]\s*["']?([^\s"' ,;]{8,})"""
     )
     private val placeholderValuePattern = Regex(
-        """(?i)^(?:changeme|change[_-]?me|example|sample|placeholder|redacted|your(?:[_-].*)?|xxx+|\*{4,}|<[^>]+>|\$\{[^}]+\})$"""
+        """(?i)^(?:changeme|change[_-]?me|example(?:[_-].*)?|sample(?:[_-].*)?|placeholder|redacted|your(?:[_-].*)?|xxx+|\*{4,}|<[^>]+>|\$\{[^}]+\})$"""
     )
 
     fun isSensitivePath(path: String): Boolean {
