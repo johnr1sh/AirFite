@@ -1,5 +1,6 @@
 package dev.johnrish.pocketengineer.workspace
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -51,6 +52,7 @@ class SensitiveFileGuardTest {
         assertFalse(SensitiveFileGuard.containsSecret("the sk-8 setting and ghp_short are fine"))
         assertFalse(SensitiveFileGuard.containsSecret("AKIA is a prefix, but this is not a key"))
     }
+
     @Test
     fun flagsEnvironmentVariantsAndCommonCredentialStores() {
         listOf(
