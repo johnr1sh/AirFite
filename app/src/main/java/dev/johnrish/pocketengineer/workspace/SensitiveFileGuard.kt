@@ -61,6 +61,8 @@ object SensitiveFileGuard {
         }
     }
 
+    fun isSafeDotEnvTemplateName(name: String): Boolean = name.lowercase() in safeDotEnvTemplates
+
     fun containsSecret(content: String): Boolean {
         if (secretPattern.containsMatchIn(content)) return true
         return secretAssignmentPattern.findAll(content).any { match ->
