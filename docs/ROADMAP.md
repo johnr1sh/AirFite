@@ -45,6 +45,7 @@ Updated: 2026-11-23
 - [ ] Streaming, cancellation, retry/backoff, request limits
 - [x] Persistent recent conversation (40-message cap)
 - [x] Encrypted WorkManager background prompt tasks with bounded history (20 records), active queue cap (10), retry, cancel, and cancellation-safe result persistence
+- [ ] Cancel in-flight background HTTP calls with WorkManager; retry transient provider HTTP statuses through bounded exponential backoff (implemented; CI verification pending)
 - [ ] Multi-session conversation management and interrupted-task recovery
 - [ ] Provider abstraction
 
@@ -72,6 +73,6 @@ Updated: 2026-11-23
 - [ ] Accessibility, keyboard navigation, tablet layouts, UI tests
 
 ## Current constraints
-Background prompt runs are single provider requests, not autonomous multi-step agents. Task history is capped at 20 records; up to 10 tasks may be queued/running/retrying, active tasks are not evicted, and cancellation is persisted so late worker updates cannot overwrite it. Workspace tool descriptors are MCP-style, but no MCP network transport or external AI connection is implemented yet. File access is read-only. Provider tool-call envelopes are validated before dispatch; malformed calls fail closed, and oversized tool results are returned as bounded valid JSON with partial-preview metadata. Workspace content is not automatically sent to the model. Build verification is delegated to CI; report actual workflow status before claiming success.
+Background prompt runs are single provider requests, not autonomous multi-step agents. Task history is capped at 20 records; up to 10 tasks may be queued/running/retrying, active tasks are not evicted, and cancellation is persisted so late worker updates cannot overwrite it. WorkManager cancellation now cancels the in-flight OkHttp call; network failures and HTTP 408/425/429/5xx use bounded exponential retries. Workspace tool descriptors are MCP-style, but no MCP network transport or external AI connection is implemented yet. File access is read-only. Provider tool-call envelopes are validated before dispatch; malformed calls fail closed, and oversized tool results are returned as bounded valid JSON with partial-preview metadata. Workspace content is not automatically sent to the model. Build verification is delegated to CI; report actual workflow status before claiming success.
 
 Architecture decisions and security gates for external agent connections are documented in [AGENT_CONNECTION_ARCHITECTURE.md](AGENT_CONNECTION_ARCHITECTURE.md).

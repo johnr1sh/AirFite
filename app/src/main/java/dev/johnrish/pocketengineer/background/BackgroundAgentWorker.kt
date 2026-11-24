@@ -17,12 +17,20 @@ import androidx.work.WorkerParameters
 import dev.johnrish.pocketengineer.MainActivity
 import dev.johnrish.pocketengineer.ProviderEndpoint
 import dev.johnrish.pocketengineer.SecureKeyStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
 import okhttp3.RequestBody.Companion.toRequestBody
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import java.util.concurrent.atomic.AtomicReference
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
@@ -60,9 +68,15 @@ class BackgroundAgentWorker(context: Context, params: WorkerParameters) : Corout
                 .readTimeout(90, TimeUnit.SECONDS)
                 .callTimeout(120, TimeUnit.SECONDS)
                 .build()
-            client.newCall(request).execute().use { response ->
+            executeCancellable(client, request).use { response ->
+                if (!response.isSuccessful) {
+                    val status = response.code
+                    if (BackgroundRetryPolicy.isRetryableHttpStatus(status)) {
+                        throw IOException("Provider temporarily unavailable (HTTP $status).")
+                    }
+                    throw IllegalStateException("Provider returned HTTP $status.")
+                }
                 val raw = readBounded(response, MAX_RESPONSE_BYTES)
-                if (!response.isSuccessful) throw IllegalStateException("Provider returned HTTP ${response.code}.")
                 val answer = JSONObject(raw).optJSONArray("choices")?.optJSONObject(0)
                     ?.optJSONObject("message")?.optString("content")?.takeIf { it.isNotBlank() }
                     ?: throw IllegalStateException("Provider returned an empty response.")
@@ -75,11 +89,14 @@ class BackgroundAgentWorker(context: Context, params: WorkerParameters) : Corout
                 }
             }
             Result.success()
+        } catch (e: CancellationException) {
+            // WorkManager cancellation must propagate rather than becoming a task failure.
+            throw e
         } catch (e: IOException) {
             if (isStopped || BackgroundTaskStore.list(applicationContext).firstOrNull { it.id == id }?.status == "Cancelled") {
                 return@withContext Result.failure()
             }
-            if (runAttemptCount < MAX_RETRIES) {
+            if (BackgroundRetryPolicy.shouldRetry(runAttemptCount, MAX_RETRIES)) {
                 BackgroundTaskStore.update(applicationContext, record.copy(status = "Retrying", error = "Network interrupted; retry scheduled."))
                 Result.retry()
             } else {
@@ -97,7 +114,35 @@ class BackgroundAgentWorker(context: Context, params: WorkerParameters) : Corout
         }
     }
 
-    private fun readBounded(response: okhttp3.Response, maxBytes: Int): String {
+    /**
+     * Cancels the actual OkHttp call when WorkManager cancels this coroutine.
+     * The response is also closed if cancellation races callback delivery.
+     */
+    private suspend fun executeCancellable(client: OkHttpClient, request: Request): Response =
+        suspendCancellableCoroutine { continuation ->
+            val call = client.newCall(request)
+            val responseRef = AtomicReference<Response?>()
+            continuation.invokeOnCancellation {
+                call.cancel()
+                responseRef.getAndSet(null)?.close()
+            }
+            call.enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    if (continuation.isActive) continuation.resumeWithException(e)
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    responseRef.set(response)
+                    if (continuation.isActive) {
+                        continuation.resume(response)
+                    } else {
+                        responseRef.getAndSet(null)?.close()
+                    }
+                }
+            })
+        }
+
+    private fun readBounded(response: Response, maxBytes: Int): String {
         val body = response.body ?: return ""
         if (body.contentLength() > maxBytes) throw IllegalStateException("Response exceeds the 2 MB limit.")
         body.byteStream().use { input ->

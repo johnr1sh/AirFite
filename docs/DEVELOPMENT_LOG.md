@@ -1,3 +1,10 @@
+## 2026-11-24 (background HTTP cancellation and transient retry policy)
+- Replaced the background worker's blocking OkHttp execution with a cancellable callback adapter using `suspendCancellableCoroutine`; WorkManager cancellation now cancels the underlying call and closes a response if callback delivery races cancellation.
+- Retry network I/O failures and HTTP 408, 425, 429, and 5xx through the existing bounded exponential WorkManager backoff; permanent HTTP errors fail immediately.
+- Added pure-Kotlin retry-policy tests for attempt bounds and transient/permanent HTTP status classification.
+- Added a root `.gitignore` for Gradle/Android build outputs, local configuration, signing material, and environment credentials.
+- Local validation: retry policy compiled and its boundary/status cases passed in a Kotlin harness. Android build/lint/worker integration tests are not available in this environment; CI verification is pending.
+
 ## 2026-11-23 (workspace ignore rules and CI warning cleanup)
 - Workspace listing and bounded search now honor the selected root folder's `.gitignore`, capped at 32 KB; unreadable, oversized, or binary ignore files fall back to no user rules rather than hiding files.
 - Added pure-Kotlin matcher tests for root anchoring, nested directory rules, glob patterns, negation, escaped comment/negation markers, and blank lines.

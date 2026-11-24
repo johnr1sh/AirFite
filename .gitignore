@@ -1,0 +1,25 @@
+# Gradle and Android build outputs
+.gradle/
+**/build/
+local.properties
+
+# Android Studio state
+.idea/
+*.iml
+.DS_Store
+
+# Generated packages and logs
+*.apk
+*.aab
+*.apks
+*.log
+
+# Signing material and local credentials
+*.jks
+*.keystore
+*.p12
+*.pfx
+keystore.properties
+.env
+.env.*
+!.env.example
