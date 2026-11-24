@@ -7,15 +7,22 @@ import org.junit.Test
 
 class SensitiveFileGuardTest {
     @Test
-    fun flagsSensitiveFileNames() {
-        listOf(".env", "config/prod.ENV", "certs/server.pem", "id.key", "my-secrets.txt", "aws_credentials", "api_token.json")
-            .forEach { assertTrue("should flag '$it'", SensitiveFileGuard.isSensitivePath(it)) }
+    fun flagsSensitiveFileNamesAndCredentialStores() {
+        listOf(
+            ".env", ".env.production", ".env.local", "config/prod.ENV", "prod.env", ".envrc",
+            "certs/server.pem", "id.key", "my-secrets.txt", "aws_credentials", "api_token.json",
+            "ssh/id_rsa", "ssh/id_ed25519", "certs/client.p12", "signing/release.keystore",
+            ".npmrc", ".pypirc", ".netrc", ".git-credentials", "config/dockerconfig.json",
+            "settings/api-key.json", "config/passwords.yaml"
+        ).forEach { assertTrue("should flag '$it'", SensitiveFileGuard.isSensitivePath(it)) }
     }
 
     @Test
-    fun allowsOrdinarySourceFiles() {
-        listOf("README.md", "app/src/main/Main.kt", "docs/ROADMAP.md")
-            .forEach { assertFalse("should allow '$it'", SensitiveFileGuard.isSensitivePath(it)) }
+    fun allowsOrdinarySourceFilesAndConventionalDotEnvTemplates() {
+        listOf(
+            "README.md", "app/src/main/Main.kt", "docs/ROADMAP.md",
+            ".env.example", ".env.sample", ".env.template", "public-key.pem.txt"
+        ).forEach { assertFalse("should allow '$it'", SensitiveFileGuard.isSensitivePath(it)) }
     }
 
     @Test
@@ -26,40 +33,45 @@ class SensitiveFileGuardTest {
     }
 
     @Test
-    fun detectsCloudAndProviderKeys() {
+    fun detectsCloudProviderAndPaymentKeys() {
         assertTrue(SensitiveFileGuard.containsSecret("aws=AKIAABCDEFGHIJKLMNOP"))
         assertTrue(SensitiveFileGuard.containsSecret("key=AIza" + "a".repeat(35)))
         assertTrue(SensitiveFileGuard.containsSecret("OPENAI=sk-" + "A1b2".repeat(6)))
+        assertTrue(SensitiveFileGuard.containsSecret("stripe=sk_live_" + "a".repeat(24)))
+        assertTrue(SensitiveFileGuard.containsSecret("oauth=GOCSPX-" + "a".repeat(24)))
     }
 
     @Test
     fun detectsHyphenatedProviderKeys() {
-        // sk-proj-… and sk-ant-… style keys contain hyphens and previously slipped through.
         assertTrue(SensitiveFileGuard.containsSecret("k=sk-proj-" + "Ab1_".repeat(8)))
         assertTrue(SensitiveFileGuard.containsSecret("k=sk-ant-api03-" + "Zy9-".repeat(8)))
     }
 
     @Test
-    fun detectsVcsAndChatTokens() {
+    fun detectsVcsChatAndGitLabTokens() {
         assertTrue(SensitiveFileGuard.containsSecret("t=ghp_" + "a1B2".repeat(9)))
         assertTrue(SensitiveFileGuard.containsSecret("t=github_pat_" + "a1B2_".repeat(6)))
         assertTrue(SensitiveFileGuard.containsSecret("t=xoxb-1234567890-abcdefghij"))
+        assertTrue(SensitiveFileGuard.containsSecret("t=glpat-" + "aB12_".repeat(5)))
     }
 
     @Test
-    fun ignoresPlainProseAndShortLookalikes() {
+    fun detectsJwtAndCredentialAssignments() {
+        assertTrue(SensitiveFileGuard.containsSecret("jwt=eyJabcdefghijk.eyJabcdefghijk.signatureabcdefghijk"))
+        assertTrue(SensitiveFileGuard.containsSecret("password=correct-horse-battery"))
+        assertTrue(SensitiveFileGuard.containsSecret("client_secret: \"secret-value-123\""))
+        assertTrue(SensitiveFileGuard.containsSecret("API_KEY=abcdef0123456789"))
+        assertTrue(SensitiveFileGuard.containsSecret("DB_PASSWORD=another-secret-value"))
+    }
+
+    @Test
+    fun ignoresPlainProseShortLookalikesAndPlaceholders() {
         assertFalse(SensitiveFileGuard.containsSecret("fun main() { println(\"hello\") }"))
         assertFalse(SensitiveFileGuard.containsSecret("the sk-8 setting and ghp_short are fine"))
         assertFalse(SensitiveFileGuard.containsSecret("AKIA is a prefix, but this is not a key"))
-    }
-
-    @Test
-    fun flagsEnvironmentVariantsAndCommonCredentialStores() {
-        listOf(
-            ".env.production", "config/.env.local", ".npmrc", ".pypirc", ".netrc",
-            ".git-credentials", "ssh/id_rsa", "ssh/id_ed25519", "certs/client.p12",
-            "signing/release.keystore", "config/dockerconfig.json", "settings/api-key.json"
-        ).forEach { assertTrue("should flag '$it'", SensitiveFileGuard.isSensitivePath(it)) }
+        assertFalse(SensitiveFileGuard.containsSecret("api_key=YOUR_API_KEY"))
+        assertFalse(SensitiveFileGuard.containsSecret("password=changeme"))
+        assertFalse(SensitiveFileGuard.containsSecret("secret: example-value"))
     }
 
     @Test
@@ -86,5 +98,4 @@ class SensitiveFileGuardTest {
             "fun main() { println(\"hello\") }"
         )
     }
-
 }
