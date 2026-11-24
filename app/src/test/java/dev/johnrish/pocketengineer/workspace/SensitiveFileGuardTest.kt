@@ -62,6 +62,9 @@ class SensitiveFileGuardTest {
         assertTrue(SensitiveFileGuard.containsSecret("client_secret: \"secret-value-123\""))
         assertTrue(SensitiveFileGuard.containsSecret("API_KEY=abcdef0123456789"))
         assertTrue(SensitiveFileGuard.containsSecret("DB_PASSWORD=another-secret-value"))
+        assertTrue(SensitiveFileGuard.containsSecret("PASSWORD = \"correct horse battery\""))
+        assertTrue(SensitiveFileGuard.containsSecret("SECRET_KEY='another value with spaces'"))
+        assertTrue(SensitiveFileGuard.containsSecret("auth_token=auth-token-value-123"))
     }
 
     @Test
@@ -72,6 +75,7 @@ class SensitiveFileGuardTest {
         assertFalse(SensitiveFileGuard.containsSecret("api_key=YOUR_API_KEY"))
         assertFalse(SensitiveFileGuard.containsSecret("password=changeme"))
         assertFalse(SensitiveFileGuard.containsSecret("secret: example-value"))
+        assertFalse(SensitiveFileGuard.containsSecret("password = \"your API key\""))
     }
 
     @Test
