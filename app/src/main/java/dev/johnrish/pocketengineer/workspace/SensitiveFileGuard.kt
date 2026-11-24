@@ -12,7 +12,7 @@ object SensitiveFileGuard {
         "This file appears to contain a credential, so AirFite will not share it with the agent."
 
     private val sensitiveNameParts = listOf(
-        "secret", "credential", "private", "token", "password", "passwd"
+        "secret", "credential", "private", "token", "password", "passwd", "apikey", "api_key", "api-key"
     )
     private val sensitiveSuffixes = listOf(
         ".pem", ".key", ".p12", ".pfx", ".jks", ".keystore", ".keychain", ".mobileprovision"
