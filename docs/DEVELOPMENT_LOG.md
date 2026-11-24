@@ -3,7 +3,7 @@
 - Added conservative content detection for GitLab PATs, Google OAuth secrets, Stripe secret/restricted keys, JWTs, and common credential assignments while allowing obvious placeholders.
 - Added regression cases for previously missed filenames/token formats and placeholder false positives.
 - Research: Android security guidance emphasizes minimizing exposure of sensitive user data. AirFite keeps file context explicit and bounded and uses best-effort local heuristics rather than treating scanning as proof of safety.
-- Validation: reviewed source/test changes; Android Gradle build and JUnit execution are unavailable in this environment.
+- Validation: compiled the guard and its regression test class with `kotlinc` using a minimal JUnit shim; all 8 test methods passed (49 assertions). Android Gradle build/lint are unavailable in this environment.
 
 ## 2026-11-24 (background HTTP cancellation and transient retry policy)
 - Replaced the background worker's blocking OkHttp execution with a cancellable callback adapter using `suspendCancellableCoroutine`; WorkManager cancellation now cancels the underlying call and closes a response if callback delivery races cancellation.
