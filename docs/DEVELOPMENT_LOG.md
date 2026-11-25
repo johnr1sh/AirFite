@@ -1,3 +1,9 @@
+## 2026-11-25 (enforce actual workspace search I/O budget)
+- Changed workspace search to account for bytes actually read instead of trusting Storage Access Framework file-size metadata, which may be stale or under-reported.
+- Each search read now receives only the remaining aggregate byte allowance and reads at most that many bytes. Failed/binary reads conservatively consume their reservation so repeated failures cannot evade the total I/O budget.
+- Added a pure-Kotlin `WorkspaceSearchBudget` policy and five unit tests for aggregate bytes, per-file/file-count caps, invalid accounting, failed reads, and sequential reservations.
+- Local Kotlin harness: five budget scenarios passed. Full Android unit tests, lint, and APK assembly remain subject to the current GitHub Actions run.
+
 ## 2026-11-25 (restore compatible Gradle CI baseline)
 - Investigated failed main workflow run [45524521954](https://github.com/johnr1sh/AirFite/actions/runs/45524521954). AGP 8.13.2 fails during plugin application with Gradle 9.9.2 because it references Gradle's internal `InternalProblems` API, removed in Gradle 9.6. This occurs before app source compilation.
 - Restored the CI-installed Gradle version to 8.14.8. Main run [45524244164](https://github.com/johnr1sh/AirFite/actions/runs/45524244164) previously passed unit tests, lint, and debug APK assembly with the same app toolchain and Gradle 8.14.8.
