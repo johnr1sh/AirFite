@@ -1,3 +1,8 @@
+## 2026-11-25 (restore compatible Gradle CI baseline)
+- Investigated failed main workflow run [45524521954](https://github.com/johnr1sh/AirFite/actions/runs/45524521954). AGP 8.13.2 fails during plugin application with Gradle 9.9.2 because it references Gradle's internal `InternalProblems` API, removed in Gradle 9.6. This occurs before app source compilation.
+- Restored the CI-installed Gradle version to 8.14.8. Main run [45524244164](https://github.com/johnr1sh/AirFite/actions/runs/45524244164) previously passed unit tests, lint, and debug APK assembly with the same app toolchain and Gradle 8.14.8.
+- Keep Gradle 9 migration blocked until the Android Gradle Plugin is upgraded to a version compatible with that Gradle line. The new main commit's full workflow is the current verification gate.
+
 ## 2026-11-25 (CI runner warning cleanup and Gradle 9.9.2 trial)
 - Set Git's default branch to main before checkout to remove the runner's init.defaultBranch hint.
 - Upgrade the CI-installed Gradle from 8.14.8 to 9.9.2, the current supported release, to remove the setup action's out-of-date notice.
