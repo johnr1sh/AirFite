@@ -92,22 +92,40 @@ class WorkspaceTools(private val context: Context, private val treeUri: Uri) {
         return content
     }
 
-    private fun readEntry(entry: WorkspaceEntry, maxBytes: Int = MAX_TEXT_BYTES): String {
-        if (entry.size > maxBytes) throw IllegalArgumentException("File exceeds the ${maxBytes / 1024} KB read limit.")
+    private data class TextReadResult(val content: String, val bytesRead: Int)
+
+    private fun readEntry(entry: WorkspaceEntry, maxBytes: Int = MAX_TEXT_BYTES): String =
+        readTextEntry(entry, maxBytes, allowTruncated = false).content
+
+    /** Search may inspect a bounded prefix when the remaining aggregate budget is smaller. */
+    private fun readSearchEntry(entry: WorkspaceEntry, maxBytes: Int): TextReadResult =
+        readTextEntry(entry, maxBytes, allowTruncated = true)
+
+    private fun readTextEntry(
+        entry: WorkspaceEntry,
+        maxBytes: Int,
+        allowTruncated: Boolean
+    ): TextReadResult {
+        require(maxBytes > 0) { "Read limit must be positive." }
+        if (!allowTruncated && entry.size > maxBytes) {
+            throw IllegalArgumentException("File exceeds the ${maxBytes / 1024} KB read limit.")
+        }
         context.contentResolver.openInputStream(entry.uri)?.use { stream ->
             val output = ByteArrayOutputStream()
             val buffer = ByteArray(8192)
             var total = 0
-            while (true) {
-                val count = stream.read(buffer)
+            while (total < maxBytes) {
+                val count = stream.read(buffer, 0, minOf(buffer.size, maxBytes - total))
                 if (count < 0) break
                 total += count
-                if (total > maxBytes) throw IllegalArgumentException("File exceeds the ${maxBytes / 1024} KB read limit.")
                 output.write(buffer, 0, count)
+            }
+            if (!allowTruncated && total == maxBytes && stream.read() >= 0) {
+                throw IllegalArgumentException("File exceeds the ${maxBytes / 1024} KB read limit.")
             }
             val bytes = output.toByteArray()
             if (bytes.any { it == 0.toByte() }) throw IllegalArgumentException("Binary files cannot be previewed as text.")
-            return bytes.toString(Charsets.UTF_8)
+            return TextReadResult(bytes.toString(Charsets.UTF_8), bytes.size)
         }
         throw IllegalStateException("Unable to open file.")
     }
@@ -118,16 +136,25 @@ class WorkspaceTools(private val context: Context, private val treeUri: Uri) {
             throw IllegalArgumentException("Search query exceeds the $MAX_SEARCH_QUERY_CHARS character limit.")
         }
         if (needle.isEmpty()) return emptyList()
-        var inspectedBytes = 0L
-        var inspectedFiles = 0
+        val budget = WorkspaceSearchBudget(
+            maxFiles = MAX_SEARCH_FILES,
+            maxTotalBytes = MAX_SEARCH_TOTAL_BYTES,
+            maxFileBytes = MAX_SEARCH_FILE_BYTES
+        )
         val matches = mutableListOf<String>()
         for (entry in listFiles()) {
             if (entry.isDirectory || SensitiveFileGuard.isSensitivePath(entry.relativePath) || entry.size > MAX_SEARCH_FILE_BYTES) continue
-            if (inspectedFiles >= MAX_SEARCH_FILES || inspectedBytes >= MAX_SEARCH_TOTAL_BYTES) break
-            inspectedFiles++
-            inspectedBytes += entry.size.coerceAtLeast(0)
-            val content = runCatching { readEntry(entry, MAX_SEARCH_FILE_BYTES) }.getOrNull() ?: continue
-            if (content.contains(needle, ignoreCase = true)) {
+            val readLimit = budget.beginFile() ?: break
+            val readResult = try {
+                readSearchEntry(entry, readLimit)
+            } catch (_: Exception) {
+                // A failed or binary read may already have consumed bytes. Charge its full
+                // reservation so repeated failures cannot bypass the aggregate I/O budget.
+                budget.abandonFile()
+                continue
+            }
+            budget.finishFile(readResult.bytesRead)
+            if (readResult.content.contains(needle, ignoreCase = true)) {
                 matches.add(entry.relativePath)
                 if (matches.size >= 50) break
             }
