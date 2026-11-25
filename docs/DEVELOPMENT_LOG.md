@@ -1,3 +1,8 @@
+## 2026-11-25 (CI runner warning cleanup and Gradle 9.9.2 trial)
+- Set Git's default branch to main before checkout to remove the runner's init.defaultBranch hint.
+- Upgrade the CI-installed Gradle from 8.14.8 to 9.9.2, the current supported release, to remove the setup action's out-of-date notice.
+- AGP 8.13.2 requires Gradle 8.13 or newer; the new version satisfies the published minimum. The complete Android build is the compatibility gate, so this migration remains pending until CI passes.
+
 ## 2026-11-25 (encrypted, bounded chat history)
 - Encrypt persisted chat history with the existing Android Keystore AES-GCM facility instead of writing prompts and responses as plaintext SharedPreferences values.
 - Migrate the previous chatHistory preference to encryptedChatHistory on load; retain the legacy value only if encryption is temporarily unavailable and show an in-app warning.

@@ -68,6 +68,7 @@ Updated: 2026-11-25
 - [ ] Agent connection dashboard, permissions, audit log, revocation
 
 ## Milestone 5 — Engineering workflows
+- [ ] Verify Gradle 9.9.2 on CI and remove the outdated-version notice without regressing Android build checks
 - [ ] Git status/diff/branch awareness
 - [ ] Supported test/build execution with explicit sandbox limits
 - [ ] Diagnostics, bounded repair attempts, verified outcomes
