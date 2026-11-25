@@ -6,6 +6,7 @@ import androidx.documentfile.provider.DocumentFile
 import dev.johnrish.pocketengineer.workspace.WorkspacePath
 import dev.johnrish.pocketengineer.workspace.WorkspaceIgnoreRules
 import dev.johnrish.pocketengineer.workspace.SensitiveFileGuard
+import dev.johnrish.pocketengineer.workspace.WorkspaceSearchBudget
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
