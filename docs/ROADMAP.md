@@ -68,13 +68,14 @@ Updated: 2026-11-25
 - [ ] Agent connection dashboard, permissions, audit log, revocation
 
 ## Milestone 5 — Engineering workflows
-- [ ] Verify Gradle 9.9.2 on CI and remove the outdated-version notice without regressing Android build checks
+- [ ] Upgrade to Gradle 9 only alongside an Android Gradle Plugin release that explicitly supports it
 - [ ] Git status/diff/branch awareness
 - [ ] Supported test/build execution with explicit sandbox limits
 - [ ] Diagnostics, bounded repair attempts, verified outcomes
 - [ ] Accessibility, keyboard navigation, tablet layouts, UI tests
 
 ## Current constraints
+CI is pinned to Gradle 8.14.8 with AGP 8.13.2. Gradle 9.6+ is currently incompatible because AGP 8.13.2 references a removed Gradle internal API; revisit only with a compatible AGP upgrade.
 Chat history is encrypted with the Android Keystore; legacy plaintext history is migrated on load when encryption succeeds, and saved history is capped at 40 messages / 128 Ki UTF-16 code units. Background prompt runs are single provider requests, not autonomous multi-step agents. Task history is capped at 20 records; up to 10 tasks may be queued/running/retrying, active tasks are not evicted, and cancellation is persisted so late worker updates cannot overwrite it. WorkManager cancellation now cancels the in-flight OkHttp call; network failures and HTTP 408/425/429/5xx use bounded exponential retries. Workspace tool descriptors are MCP-style, but no MCP network transport or external AI connection is implemented yet. File access is read-only. Provider tool-call envelopes are validated before dispatch; malformed calls fail closed, and oversized tool results are returned as bounded valid JSON with partial-preview metadata. Workspace content is not automatically sent to the model. Likely credential paths and recognized credential-bearing content are blocked from workspace previews and agent reads; this is heuristic protection, not a guarantee that all secrets are detected. Agent search queries are capped at 256 characters. Build verification is delegated to CI; report actual workflow status before claiming success.
 
 Architecture decisions and security gates for external agent connections are documented in [AGENT_CONNECTION_ARCHITECTURE.md](AGENT_CONNECTION_ARCHITECTURE.md).
