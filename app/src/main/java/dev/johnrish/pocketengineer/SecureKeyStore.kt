@@ -9,7 +9,7 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-/** Encrypts provider secrets with an AES-GCM key held in Android Keystore. */
+/** Encrypts sensitive app data with AES-GCM and a non-exportable Android Keystore key. */
 class SecureKeyStore {
     companion object {
         private const val STORE = "AndroidKeyStore"

@@ -1,6 +1,6 @@
 # AirFite Engineering Roadmap
 
-Updated: 2026-11-24
+Updated: 2026-11-25
 
 ## Active focus — product foundation and agent connectivity
 - [x] Establish secure external-agent connection architecture and threat model (design baseline)
@@ -9,6 +9,7 @@ Updated: 2026-11-24
 - [ ] Light theme and tablet layouts
 - [ ] UI tests (Compose) for navigation, settings and error states
 - [x] Persist bounded recent chat history and provide clear/new-chat action
+- [x] Encrypt saved chat history with Android Keystore AES-GCM; migrate legacy plaintext history and cap it at 40 messages / 128 Ki UTF-16 code units
 - [x] Add provider connectivity diagnostic against OpenAI-compatible `/models`
 - [x] Preserve encrypted API key when saving settings with key field blank
 - [x] Add workspace refresh and bounded search scan
@@ -73,6 +74,6 @@ Updated: 2026-11-24
 - [ ] Accessibility, keyboard navigation, tablet layouts, UI tests
 
 ## Current constraints
-Background prompt runs are single provider requests, not autonomous multi-step agents. Task history is capped at 20 records; up to 10 tasks may be queued/running/retrying, active tasks are not evicted, and cancellation is persisted so late worker updates cannot overwrite it. WorkManager cancellation now cancels the in-flight OkHttp call; network failures and HTTP 408/425/429/5xx use bounded exponential retries. Workspace tool descriptors are MCP-style, but no MCP network transport or external AI connection is implemented yet. File access is read-only. Provider tool-call envelopes are validated before dispatch; malformed calls fail closed, and oversized tool results are returned as bounded valid JSON with partial-preview metadata. Workspace content is not automatically sent to the model. Likely credential paths and recognized credential-bearing content are blocked from workspace previews and agent reads; this is heuristic protection, not a guarantee that all secrets are detected. Agent search queries are capped at 256 characters. Build verification is delegated to CI; report actual workflow status before claiming success.
+Chat history is encrypted with the Android Keystore; legacy plaintext history is migrated on load when encryption succeeds, and saved history is capped at 40 messages / 128 Ki UTF-16 code units. Background prompt runs are single provider requests, not autonomous multi-step agents. Task history is capped at 20 records; up to 10 tasks may be queued/running/retrying, active tasks are not evicted, and cancellation is persisted so late worker updates cannot overwrite it. WorkManager cancellation now cancels the in-flight OkHttp call; network failures and HTTP 408/425/429/5xx use bounded exponential retries. Workspace tool descriptors are MCP-style, but no MCP network transport or external AI connection is implemented yet. File access is read-only. Provider tool-call envelopes are validated before dispatch; malformed calls fail closed, and oversized tool results are returned as bounded valid JSON with partial-preview metadata. Workspace content is not automatically sent to the model. Likely credential paths and recognized credential-bearing content are blocked from workspace previews and agent reads; this is heuristic protection, not a guarantee that all secrets are detected. Agent search queries are capped at 256 characters. Build verification is delegated to CI; report actual workflow status before claiming success.
 
 Architecture decisions and security gates for external agent connections are documented in [AGENT_CONNECTION_ARCHITECTURE.md](AGENT_CONNECTION_ARCHITECTURE.md).

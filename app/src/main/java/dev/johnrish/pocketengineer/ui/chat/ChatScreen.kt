@@ -93,6 +93,9 @@ fun ChatScreen(
                 action = { TextButton(onClick = onOpenSettings) { Text("Set up") } }
             )
         }
+        vm.historyWarning?.let { warning ->
+            InlineNotice(text = warning, isError = true)
+        }
         LazyColumn(
             modifier = Modifier.weight(1f).fillMaxWidth(),
             state = listState,

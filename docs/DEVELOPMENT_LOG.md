@@ -1,3 +1,10 @@
+## 2026-11-25 (encrypted, bounded chat history)
+- Encrypt persisted chat history with the existing Android Keystore AES-GCM facility instead of writing prompts and responses as plaintext SharedPreferences values.
+- Migrate the previous chatHistory preference to encryptedChatHistory on load; retain the legacy value only if encryption is temporarily unavailable and show an in-app warning.
+- Bound in-memory and persisted history to the newest 40 messages and 128 Ki UTF-16 code units, marking a truncated message and avoiding broken UTF-16 surrogate pairs.
+- Clear both encrypted and legacy history on New chat. Added pure-Kotlin policy tests for message/character caps, newest-message priority, truncation notice, and surrogate safety.
+- Android CI is the integration verification source; local validation covers the Android-free history policy only.
+
 ## 2026-11-24 (background HTTP cancellation and transient retry policy)
 - Replaced the background worker's blocking OkHttp execution with a cancellable callback adapter using `suspendCancellableCoroutine`; WorkManager cancellation now cancels the underlying call and closes a response if callback delivery races cancellation.
 - Retry network I/O failures and HTTP 408, 425, 429, and 5xx through the existing bounded exponential WorkManager backoff; permanent HTTP errors fail immediately.

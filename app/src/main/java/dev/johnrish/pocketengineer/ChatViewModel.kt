@@ -9,6 +9,8 @@ import androidx.lifecycle.viewModelScope
 import dev.johnrish.pocketengineer.workspace.SensitiveFileGuard
 import dev.johnrish.pocketengineer.agent.AgentToolCallValidation
 import dev.johnrish.pocketengineer.agent.AgentToolCallValidator
+import dev.johnrish.pocketengineer.chat.ChatHistoryEntry
+import dev.johnrish.pocketengineer.chat.ChatHistoryPolicy
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -31,6 +33,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         .readTimeout(60, TimeUnit.SECONDS)
         .callTimeout(90, TimeUnit.SECONDS)
         .build()
+    var historyWarning by androidx.compose.runtime.mutableStateOf<String?>(null)
+        private set
     var messages by androidx.compose.runtime.mutableStateOf(loadMessages(prefs))
         private set
     var input by androidx.compose.runtime.mutableStateOf("")
@@ -80,29 +84,84 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     init { refreshWorkspace() }
 
     private fun persistMessages() {
-        val json = JSONArray().apply {
-            messages.takeLast(MAX_SAVED_MESSAGES).forEach { put(JSONObject().put("role", it.role).put("content", it.content)) }
+        val bounded = ChatHistoryPolicy.bound(
+            messages.map { ChatHistoryEntry(it.role, it.content) },
+            maxMessages = MAX_SAVED_MESSAGES,
+            maxTotalChars = MAX_SAVED_HISTORY_CHARS
+        )
+        messages = bounded.map { ChatMessage(it.role, it.content) }
+        val encrypted = runCatching { secureKeys.encrypt(encodeChatHistory(bounded)) }.getOrNull()
+        if (encrypted == null) {
+            historyWarning = "AirFite couldn't securely save this conversation. It remains available until the app closes."
+            return
         }
-        prefs.edit().putString("chatHistory", json.toString()).apply()
+        prefs.edit()
+            .putString(ENCRYPTED_CHAT_HISTORY, encrypted)
+            .remove(LEGACY_CHAT_HISTORY)
+            .apply()
+        historyWarning = null
     }
 
     fun clearConversation() {
         if (busy) return
         messages = emptyList()
-        prefs.edit().remove("chatHistory").apply()
+        prefs.edit()
+            .remove(ENCRYPTED_CHAT_HISTORY)
+            .remove(LEGACY_CHAT_HISTORY)
+            .apply()
+        historyWarning = null
         input = ""
         removePendingContext()
     }
 
-    private fun loadMessages(prefs: android.content.SharedPreferences): List<ChatMessage> = runCatching {
-        val saved = JSONArray(prefs.getString("chatHistory", "[]"))
-        (0 until saved.length()).mapNotNull { index ->
+    private fun loadMessages(prefs: android.content.SharedPreferences): List<ChatMessage> {
+        val encrypted = prefs.getString(ENCRYPTED_CHAT_HISTORY, "").orEmpty()
+        if (encrypted.isNotBlank()) {
+            val plaintext = runCatching { secureKeys.decrypt(encrypted) }.getOrElse {
+                historyWarning = "Saved conversation couldn't be decrypted on this device. The encrypted copy was preserved."
+                return emptyList()
+            }
+            return decodeChatHistory(plaintext).map { ChatMessage(it.role, it.content) }
+        }
+
+        // One-time migration from the previous plaintext preference. Keep it only if Keystore
+        // encryption is temporarily unavailable; the next successful save retries migration.
+        val legacy = prefs.getString(LEGACY_CHAT_HISTORY, null) ?: return emptyList()
+        val bounded = decodeChatHistory(legacy)
+        val migrated = runCatching { secureKeys.encrypt(encodeChatHistory(bounded)) }.getOrNull()
+        if (migrated != null) {
+            prefs.edit()
+                .putString(ENCRYPTED_CHAT_HISTORY, migrated)
+                .remove(LEGACY_CHAT_HISTORY)
+                .apply()
+        } else {
+            historyWarning = "AirFite couldn't securely migrate your previous chat history. It remains in legacy storage until encryption succeeds."
+        }
+        return bounded.map { ChatMessage(it.role, it.content) }
+    }
+
+    private fun decodeChatHistory(serialized: String): List<ChatHistoryEntry> = runCatching {
+        val saved = JSONArray(serialized)
+        val entries = (0 until saved.length()).mapNotNull { index ->
             val item = saved.optJSONObject(index) ?: return@mapNotNull null
             val role = item.optString("role")
-            val text = item.optString("content")
-            if ((role == "user" || role == "assistant") && text.isNotBlank()) ChatMessage(role, text) else null
-        }.takeLast(MAX_SAVED_MESSAGES)
+            val content = item.optString("content")
+            if ((role == "user" || role == "assistant") && content.isNotBlank()) {
+                ChatHistoryEntry(role, content)
+            } else {
+                null
+            }
+        }
+        ChatHistoryPolicy.bound(
+            entries,
+            maxMessages = MAX_SAVED_MESSAGES,
+            maxTotalChars = MAX_SAVED_HISTORY_CHARS
+        )
     }.getOrDefault(emptyList())
+
+    private fun encodeChatHistory(entries: List<ChatHistoryEntry>): String = JSONArray().apply {
+        entries.forEach { put(JSONObject().put("role", it.role).put("content", it.content)) }
+    }.toString()
 
     fun fetchModels() {
         if (loadingModels) return
@@ -423,6 +482,9 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         const val MAX_AGENT_TOOL_ROUNDS = 4
         const val MAX_AGENT_TOOL_CALLS_PER_ROUND = 8
         const val MAX_AGENT_TOOL_RESULT_CHARS = 80 * 1024
-        const val MAX_SAVED_MESSAGES = 40
+        const val MAX_SAVED_MESSAGES = ChatHistoryPolicy.MAX_MESSAGES
+        const val MAX_SAVED_HISTORY_CHARS = ChatHistoryPolicy.MAX_TOTAL_CHARS
+        private const val ENCRYPTED_CHAT_HISTORY = "encryptedChatHistory"
+        private const val LEGACY_CHAT_HISTORY = "chatHistory"
     }
 }
