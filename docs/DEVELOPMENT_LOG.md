@@ -1,3 +1,10 @@
+## 2026-11-25 (restore compatible Gradle CI baseline)
+- Investigated failed GitHub Actions run [45524521954](https://github.com/johnr1sh/AirFite/actions/runs/45524521954). The failure occurs while applying AGP 8.13.2: its application plugin references Gradle's internal `InternalProblems` API, removed in Gradle 9.6. This is a toolchain compatibility failure, not an app-source compilation failure.
+- Reverted the CI-installed Gradle version to 8.14.8. Android's AGP compatibility table lists 8.13 as requiring Gradle 8.13 minimum, so 8.14.8 satisfies the published minimum. The previous 8.14.8 workflow passed `testDebugUnitTest`, `lintDebug`, and `assembleDebug` on commit `28c2192f0a02ebb1e554b0b4ec3948ec33003aa8` (run [45524244164](https://github.com/johnr1sh/AirFite/actions/runs/45524244164)).
+- Do not retry Gradle 9.6+ with AGP 8.13.2. Revisit only alongside an AGP release whose compatibility notes explicitly support that Gradle line.
+- Research: [Android Gradle Plugin compatibility table](https://developer.android.com/build/releases/about-agp) and [AGP 8.13 release notes](https://developer.android.com/build/releases/agp-8-13-0-release-notes).
+- Verification for this rollback commit: pending its GitHub Actions run; the known-good prior run is recorded above.
+
 ## 2026-11-25 (CI runner warning cleanup and Gradle 9.9.2 trial)
 - Set Git's default branch to main before checkout to remove the runner's init.defaultBranch hint.
 - Upgrade the CI-installed Gradle from 8.14.8 to 9.9.2, the current supported release, to remove the setup action's out-of-date notice.
