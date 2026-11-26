@@ -36,6 +36,7 @@ Updated: 2026-11-26
 - [x] Treat attached file content as untrusted input in model instructions
 - [x] Unit tests for path validation (`workspace/WorkspacePath`) and secret/sensitive-file guard
 - [x] Extract Android-free workspace tool dispatch policy behind a narrow SAF data-source port; cover listing, exact-path reads, traversal rejection, duplicate paths, argument validation, and bounded search with JVM unit tests
+- [x] Run SAF workspace listing and preview reads on `Dispatchers.IO`; cancel superseded requests and prevent stale results from replacing the currently selected workspace or file
 
 ## Milestone 2 — Reliable provider and sessions
 - [x] Keystore-backed encrypted API-key storage
