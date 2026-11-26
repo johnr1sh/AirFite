@@ -11,9 +11,12 @@ import dev.johnrish.pocketengineer.agent.AgentToolCallValidation
 import dev.johnrish.pocketengineer.agent.AgentToolCallValidator
 import dev.johnrish.pocketengineer.chat.ChatHistoryEntry
 import dev.johnrish.pocketengineer.chat.ChatHistoryPolicy
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import dev.johnrish.pocketengineer.workspace.WorkspaceOperationGate
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -58,8 +61,15 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var workspaceName by androidx.compose.runtime.mutableStateOf<String?>(null)
         private set
+    var workspaceLoading by androidx.compose.runtime.mutableStateOf(false)
+        private set
+    var workspaceFileLoading by androidx.compose.runtime.mutableStateOf(false)
+        private set
     var workspaceFiles by androidx.compose.runtime.mutableStateOf<List<WorkspaceEntry>>(emptyList())
         private set
+    private val workspaceOperationGate = WorkspaceOperationGate()
+    private var workspaceRefreshJob: Job? = null
+    private var workspaceOpenJob: Job? = null
     var workspaceSearch by androidx.compose.runtime.mutableStateOf("")
     var selectedFileName by androidx.compose.runtime.mutableStateOf<String?>(null)
         private set
@@ -249,14 +259,36 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setWorkspace(uri: Uri) {
+        workspaceOperationGate.workspaceChanged()
+        workspaceRefreshJob?.cancel()
+        workspaceOpenJob?.cancel()
         workspaceUri = uri
-        val name = androidx.documentfile.provider.DocumentFile.fromTreeUri(getApplication(), uri)?.name ?: uri.lastPathSegment ?: "Workspace"
-        recentWorkspaces = (listOf(RecentWorkspace(uri, name)) + recentWorkspaces.filterNot { it.uri == uri }).take(5)
-        val recentJson = JSONArray().apply { recentWorkspaces.forEach { put(JSONObject().put("uri", it.uri.toString()).put("name", it.name)) } }
-        prefs.edit().putString("workspaceUri", uri.toString()).putString("recentWorkspaces", recentJson.toString()).apply()
+        workspaceFiles = emptyList()
+        workspaceName = null
+        workspaceSearch = ""
         selectedFileName = null
         selectedFileContent = null
+        workspaceLoading = false
+        workspaceFileLoading = false
+        workspaceError = null
+        removePendingContext()
+        prefs.edit().putString("workspaceUri", uri.toString()).apply()
+        val fallbackName = uri.lastPathSegment
+            ?.substringAfterLast('/')
+            ?.substringAfterLast(':')
+            ?.takeIf(String::isNotBlank)
+            ?: "Selected folder"
+        rememberWorkspace(uri, fallbackName)
         refreshWorkspace()
+    }
+
+    private fun rememberWorkspace(uri: Uri, name: String) {
+        val displayName = name.trim().take(120).ifBlank { "Workspace" }
+        recentWorkspaces = (listOf(RecentWorkspace(uri, displayName)) + recentWorkspaces.filterNot { it.uri == uri }).take(5)
+        val recentJson = JSONArray().apply {
+            recentWorkspaces.forEach { put(JSONObject().put("uri", it.uri.toString()).put("name", it.name)) }
+        }
+        prefs.edit().putString("recentWorkspaces", recentJson.toString()).apply()
     }
 
     private fun loadRecentWorkspaces(prefs: android.content.SharedPreferences): List<RecentWorkspace> = runCatching {
@@ -271,27 +303,76 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refreshWorkspace() {
         val uri = workspaceUri ?: return
-        runCatching {
-            val root = androidx.documentfile.provider.DocumentFile.fromTreeUri(getApplication(), uri)
-                ?: throw IllegalStateException("Folder permission is unavailable. Select the folder again.")
-            workspaceName = root.name ?: uri.lastPathSegment
-            workspaceFiles = WorkspaceTools(getApplication<Application>(), uri).listFiles()
-            workspaceError = null
-        }.onFailure { workspaceError = it.message ?: "Unable to access workspace." }
+        val token = workspaceOperationGate.beginRefresh()
+        workspaceRefreshJob?.cancel()
+        workspaceLoading = true
+        workspaceError = null
+        workspaceRefreshJob = viewModelScope.launch {
+            try {
+                val snapshot = withContext(Dispatchers.IO) {
+                    val root = androidx.documentfile.provider.DocumentFile.fromTreeUri(
+                        getApplication<Application>(), uri
+                    ) ?: throw IllegalStateException("Folder permission is unavailable. Select the folder again.")
+                    val fallbackName = uri.lastPathSegment
+                        ?.substringAfterLast('/')
+                        ?.substringAfterLast(':')
+                        ?.takeIf(String::isNotBlank)
+                        ?: "Workspace"
+                    val name = root.name?.takeIf(String::isNotBlank) ?: fallbackName
+                    name to WorkspaceTools(getApplication<Application>(), uri).listFiles()
+                }
+                if (!workspaceOperationGate.isCurrentRefresh(token) || workspaceUri != uri) return@launch
+                workspaceName = snapshot.first
+                workspaceFiles = snapshot.second
+                rememberWorkspace(uri, snapshot.first)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                if (workspaceOperationGate.isCurrentRefresh(token) && workspaceUri == uri) {
+                    workspaceError = error.message ?: "Unable to access workspace."
+                }
+            } finally {
+                if (workspaceOperationGate.isCurrentRefresh(token) && workspaceUri == uri) {
+                    workspaceLoading = false
+                }
+            }
+        }
     }
 
     fun openWorkspaceFile(entry: WorkspaceEntry) {
         if (entry.isDirectory) return
-        runCatching {
-            selectedFileContent = WorkspaceTools(getApplication<Application>(), workspaceUri ?: return)
-                .readFile(entry.uri)
-            selectedFileName = entry.relativePath
-            workspaceError = null
-        }.onFailure { workspaceError = it.message ?: "Unable to read file." }
+        val uri = workspaceUri ?: return
+        val token = workspaceOperationGate.beginRead()
+        workspaceOpenJob?.cancel()
+        selectedFileName = entry.relativePath
+        selectedFileContent = null
+        workspaceFileLoading = true
+        workspaceError = null
+        workspaceOpenJob = viewModelScope.launch {
+            try {
+                val content = withContext(Dispatchers.IO) {
+                    WorkspaceTools(getApplication<Application>(), uri).readFile(entry.uri)
+                }
+                if (!workspaceOperationGate.isCurrentRead(token) || workspaceUri != uri) return@launch
+                selectedFileContent = content
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                if (workspaceOperationGate.isCurrentRead(token) && workspaceUri == uri) {
+                    selectedFileContent = null
+                    workspaceError = error.message ?: "Unable to read file."
+                }
+            } finally {
+                if (workspaceOperationGate.isCurrentRead(token) && workspaceUri == uri) {
+                    workspaceFileLoading = false
+                }
+            }
+        }
     }
 
     /** Explicit user action only. Context is bounded and sensitive-looking files are blocked. */
     fun attachSelectedFileToNextMessage(): Boolean {
+        if (workspaceFileLoading) return false
         val name = selectedFileName ?: return false
         val content = selectedFileContent ?: return false
         if (SensitiveFileGuard.isSensitivePath(name) || SensitiveFileGuard.containsSecret(content)) {

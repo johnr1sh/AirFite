@@ -1,6 +1,7 @@
 package dev.johnrish.pocketengineer.ui.workspace
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,8 +28,10 @@ import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -135,7 +138,7 @@ private fun FileBrowser(vm: ChatViewModel, onPickFolder: () -> Unit, onOpenPrevi
     Column(modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         ScreenHeader(title = "Files", subtitle = vm.workspaceName ?: "No workspace selected") {
             if (vm.workspaceUri != null) {
-                IconButton(onClick = { vm.refreshWorkspace() }) { Icon(Icons.Filled.Refresh, contentDescription = "Refresh files") }
+                IconButton(enabled = !vm.workspaceLoading, onClick = { vm.refreshWorkspace() }) { Icon(Icons.Filled.Refresh, contentDescription = "Refresh files") }
             }
             IconButton(onClick = { if (vm.workspaceUri == null) onPickFolder() else confirmWorkspaceChange = true }) {
                 Icon(Icons.Outlined.FolderOpen, contentDescription = if (vm.workspaceUri == null) "Choose folder" else "Change folder")
@@ -166,6 +169,7 @@ private fun FileBrowser(vm: ChatViewModel, onPickFolder: () -> Unit, onOpenPrevi
                     }
                 }
             )
+            if (vm.workspaceLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
             Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 6.dp)) {
                 Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.Folder, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
@@ -177,11 +181,23 @@ private fun FileBrowser(vm: ChatViewModel, onPickFolder: () -> Unit, onOpenPrevi
             }
             vm.workspaceError?.let { InlineNotice(text = it, isError = true) }
             LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
-                if (filtered.isEmpty()) item { EmptyState(icon = Icons.Filled.Search, title = "No matching files", body = "Try a different filename or path filter.") }
+                if (vm.workspaceLoading && vm.workspaceFiles.isEmpty()) {
+                    item {
+                        Column(
+                            Modifier.fillMaxWidth().padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            CircularProgressIndicator()
+                            Text("Loading workspace…", Modifier.padding(top = 12.dp), style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                } else if (filtered.isEmpty()) {
+                    item { EmptyState(icon = Icons.Filled.Search, title = "No matching files", body = "Try a different filename or path filter.") }
+                }
                 items(filtered) { entry ->
                     FileRow(entry, showFullPath = filter.isNotEmpty()) {
                         vm.openWorkspaceFile(entry)
-                        if (vm.selectedFileName == entry.relativePath) onOpenPreview()
+                        onOpenPreview()
                     }
                 }
             }
@@ -225,29 +241,50 @@ private fun FilePreview(vm: ChatViewModel, onClose: () -> Unit, onAttached: () -
             Text(name, Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Text(
-            "${lines.size} lines", style = MaterialTheme.typography.labelSmall,
+            if (vm.workspaceFileLoading) "Reading file…" else "${lines.size} lines",
+            style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 12.dp, bottom = 8.dp)
         )
-        Surface(
-            Modifier.weight(1f).fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.small
-        ) {
-            LazyColumn(Modifier.padding(vertical = 8.dp)) {
-                items(lines.size) { index ->
-                    Row(Modifier.padding(horizontal = 10.dp)) {
-                        Text(
-                            (index + 1).toString().padStart(4), style = CodeTextStyle,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Text(lines[index], style = CodeTextStyle, modifier = Modifier.weight(1f))
+        if (vm.workspaceFileLoading) {
+            Column(
+                Modifier.weight(1f).fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                CircularProgressIndicator()
+                Text("Reading file…", Modifier.padding(top = 12.dp), style = MaterialTheme.typography.bodySmall)
+            }
+        } else if (vm.selectedFileContent != null) {
+            Surface(
+                Modifier.weight(1f).fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.small
+            ) {
+                LazyColumn(Modifier.padding(vertical = 8.dp)) {
+                    items(lines.size) { index ->
+                        Row(Modifier.padding(horizontal = 10.dp)) {
+                            Text(
+                                (index + 1).toString().padStart(4), style = CodeTextStyle,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(lines[index], style = CodeTextStyle, modifier = Modifier.weight(1f))
+                        }
                     }
                 }
+            }
+        } else {
+            Column(
+                Modifier.weight(1f).fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text("File content is unavailable.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         vm.workspaceError?.let { InlineNotice(text = it, isError = true) }
         Spacer(Modifier.height(12.dp))
         Button(
+            enabled = !vm.workspaceFileLoading && vm.selectedFileContent != null,
             onClick = { if (vm.attachSelectedFileToNextMessage()) onAttached() },
             modifier = Modifier.fillMaxWidth()
         ) {
