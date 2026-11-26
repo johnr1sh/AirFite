@@ -35,7 +35,7 @@ Updated: 2026-11-26
 - [x] Sensitive filename and credential-pattern safeguards for explicit attachments, workspace previews, and agent file reads (dotenv variants except conventional templates, SSH/private-key files, credential stores, provider tokens, JWT-like values, and assignment-style secrets)
 - [x] Treat attached file content as untrusted input in model instructions
 - [x] Unit tests for path validation (`workspace/WorkspacePath`) and secret/sensitive-file guard
-- [ ] Unit tests for tool dispatch (blocked on an Android-free workspace abstraction)
+- [x] Extract Android-free workspace tool dispatch policy behind a narrow SAF data-source port; cover listing, exact-path reads, traversal rejection, duplicate paths, argument validation, and bounded search with JVM unit tests
 
 ## Milestone 2 — Reliable provider and sessions
 - [x] Keystore-backed encrypted API-key storage
