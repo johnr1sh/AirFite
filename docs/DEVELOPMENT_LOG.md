@@ -1,3 +1,11 @@
+## 2026-11-26 (keep SAF workspace I/O off the UI thread)
+- Moved selected-folder enumeration and file preview reads from synchronous ViewModel callbacks to `Dispatchers.IO`. This avoids blocking Compose interactions while Storage Access Framework providers enumerate remote or slow document trees.
+- Added independent latest-request tokens for refresh and file-read operations. Switching workspaces invalidates both; opening a newer file invalidates an older preview; refreshing the list does not cancel a valid in-flight preview. Superseded jobs are cancelled and stale completions cannot overwrite current state.
+- Removed the remaining synchronous `DocumentFile.fromTreeUri(...).name` lookup from workspace selection; the actual folder name is resolved with the asynchronous refresh.
+- Added four pure Kotlin tests for latest-refresh wins, latest-file-read wins, workspace-switch invalidation, and independence between refresh and preview operations.
+- Research: Android's [threading guidance](https://developer.android.com/topic/performance/threads) explains that blocking the main thread with I/O can stall rendering and input and lead to ANRs; the [coroutines guidance](https://developer.android.com/kotlin/coroutines/coroutines-adv) recommends `Dispatchers.IO` for disk and network I/O while updating UI state on the main dispatcher.
+- Validation: pending local compilation/test execution and GitHub Actions for this branch. No Android build or APK result is claimed yet.
+
 ## 2026-11-26 (Android-free workspace tool service)
 - Extracted read-only workspace tool dispatch into a pure Kotlin service behind a small data-source port. Tool argument validation, exact path membership, duplicate-path rejection, and search-query bounds no longer require Android classes.
 - Kept Storage Access Framework authorization at the Android adapter boundary and re-resolve the selected path immediately before reading; the extraction does not widen the user-granted tree or add write/execute tools.
