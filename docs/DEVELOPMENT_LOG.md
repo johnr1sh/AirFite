@@ -4,7 +4,7 @@
 - Removed the remaining synchronous `DocumentFile.fromTreeUri(...).name` lookup from workspace selection; the actual folder name is resolved with the asynchronous refresh.
 - Added four pure Kotlin tests for latest-refresh wins, latest-file-read wins, workspace-switch invalidation, and independence between refresh and preview operations.
 - Research: Android's [threading guidance](https://developer.android.com/topic/performance/threads) explains that blocking the main thread with I/O can stall rendering and input and lead to ANRs; the [coroutines guidance](https://developer.android.com/kotlin/coroutines/coroutines-adv) recommends `Dispatchers.IO` for disk and network I/O while updating UI state on the main dispatcher.
-- Validation: pending local compilation/test execution and GitHub Actions for this branch. No Android build or APK result is claimed yet.
+- Validation: the operation gate and all four test methods compiled with the local Kotlin compiler against a minimal JUnit-compatible harness; all 4 test methods passed. Android Gradle unit tests, lint, and APK assembly are not available locally, and no GitHub commit status/check run has been surfaced yet.
 
 ## 2026-11-26 (Android-free workspace tool service)
 - Extracted read-only workspace tool dispatch into a pure Kotlin service behind a small data-source port. Tool argument validation, exact path membership, duplicate-path rejection, and search-query bounds no longer require Android classes.
