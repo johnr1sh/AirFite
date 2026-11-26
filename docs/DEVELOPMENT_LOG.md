@@ -1,3 +1,10 @@
+## 2026-11-26 (Android-free workspace tool service)
+- Extracted read-only workspace tool dispatch into a pure Kotlin service behind a small data-source port. Tool argument validation, exact path membership, duplicate-path rejection, and search-query bounds no longer require Android classes.
+- Kept Storage Access Framework authorization at the Android adapter boundary and re-resolve the selected path immediately before reading; the extraction does not widen the user-granted tree or add write/execute tools.
+- Added JVM tests for list/read/search dispatch, traversal and missing-path rejection, directories and ambiguous duplicate entries, wrong/missing/unexpected arguments, unknown tools, and query limits.
+- Research: Android's official [data layer guidance](https://developer.android.com/topic/architecture/data-layer) recommends interfaces/fakes around external data sources so business rules can be unit-tested; [SAF documentation](https://developer.android.com/training/data-storage/shared/documents-files) keeps file access tied to user-selected document/tree URIs. AirFite follows that boundary rather than converting SAF URIs to raw filesystem paths.
+- Validation: pending local pure-Kotlin harness and GitHub Actions for the new commit. Full Android lint/build and APK status will be reported only after the workflow completes.
+
 ## 2026-11-26 (centralize Kotlin and Compose plugin versions)
 - Moved Android Gradle Plugin, Kotlin Gradle Plugin, and Compose compiler plugin versions into the standard Gradle version catalog. Both Kotlin plugins now reference the single Kotlin version (2.3.21), correcting the prior mismatch where the Compose plugin was 2.0.21.
 - Added weekly Dependabot version updates for Gradle manifests and GitHub Actions.
