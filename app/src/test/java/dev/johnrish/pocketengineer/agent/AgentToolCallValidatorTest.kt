@@ -171,4 +171,102 @@ class AgentToolCallValidatorTest {
         assertTrue(AgentToolCallValidator.validate(JSONArray().put(callFor("""{"labels":["toolong"]}""")), tools, 1) is AgentToolCallValidation.Invalid)
     }
 
+
+    @Test
+    fun recursivelyValidatesNestedObjectRequiredFieldsAndAdditionalProperties() {
+        val profileSchema = JSONObject().put("type", "object")
+            .put("properties", JSONObject()
+                .put("displayName", JSONObject().put("type", "string").put("minLength", 1))
+                .put("age", JSONObject().put("type", "integer").put("minimum", 0).put("maximum", 130)))
+            .put("required", JSONArray().put("displayName"))
+            .put("additionalProperties", false)
+        val tools = mapOf(
+            "test.profile" to schema(
+                JSONObject().put("profile", profileSchema),
+                JSONArray().put("profile")
+            )
+        )
+        fun callFor(arguments: JSONObject) = call(name = "test.profile").put(
+            "function", JSONObject().put("name", "test.profile").put("arguments", arguments)
+        )
+
+        val valid = JSONObject().put("profile", JSONObject().put("displayName", "AirFite").put("age", 1))
+        assertTrue(AgentToolCallValidator.validate(JSONArray().put(callFor(valid)), tools, 1) is AgentToolCallValidation.Valid)
+
+        val missingNestedRequired = JSONObject().put("profile", JSONObject().put("age", 1))
+        assertTrue(AgentToolCallValidator.validate(JSONArray().put(callFor(missingNestedRequired)), tools, 1) is AgentToolCallValidation.Invalid)
+
+        val unexpectedNestedField = JSONObject().put(
+            "profile", JSONObject().put("displayName", "AirFite").put("admin", true)
+        )
+        assertTrue(AgentToolCallValidator.validate(JSONArray().put(callFor(unexpectedNestedField)), tools, 1) is AgentToolCallValidation.Invalid)
+
+        val wrongNestedType = JSONObject().put("profile", JSONObject().put("displayName", 42))
+        assertTrue(AgentToolCallValidator.validate(JSONArray().put(callFor(wrongNestedType)), tools, 1) is AgentToolCallValidation.Invalid)
+    }
+
+    @Test
+    fun recursivelyValidatesObjectSchemasInsideArrays() {
+        val itemSchema = JSONObject().put("type", "object")
+            .put("properties", JSONObject()
+                .put("path", JSONObject().put("type", "string").put("minLength", 1))
+                .put("line", JSONObject().put("type", "integer").put("minimum", 1)))
+            .put("required", JSONArray().put("path").put("line"))
+            .put("additionalProperties", false)
+        val tools = mapOf(
+            "test.edits" to schema(
+                JSONObject().put("edits", JSONObject().put("type", "array")
+                    .put("minItems", 1).put("maxItems", 2).put("items", itemSchema)),
+                JSONArray().put("edits")
+            )
+        )
+        fun callFor(arguments: String) = call(name = "test.edits", arguments = arguments)
+
+        assertTrue(AgentToolCallValidator.validate(
+            JSONArray().put(callFor("""{"edits":[{"path":"src/Main.kt","line":1}]}""")), tools, 1
+        ) is AgentToolCallValidation.Valid)
+        assertTrue(AgentToolCallValidator.validate(
+            JSONArray().put(callFor("""{"edits":[{"path":"src/Main.kt"}]}""")), tools, 1
+        ) is AgentToolCallValidation.Invalid)
+        assertTrue(AgentToolCallValidator.validate(
+            JSONArray().put(callFor("""{"edits":[{"path":"src/Main.kt","line":1,"force":true}]}""")), tools, 1
+        ) is AgentToolCallValidation.Invalid)
+        assertTrue(AgentToolCallValidator.validate(
+            JSONArray().put(callFor("""{"edits":[{"path":"src/Main.kt","line":"1"}]}""")), tools, 1
+        ) is AgentToolCallValidation.Invalid)
+    }
+
+    @Test
+    fun rejectsArgumentsNestedBeyondTheConfiguredDepth() {
+        var nestedSchema = JSONObject().put("type", "object")
+            .put("properties", JSONObject().put("leaf", JSONObject().put("type", "string")))
+            .put("required", JSONArray().put("leaf"))
+            .put("additionalProperties", false)
+        var nestedArguments = JSONObject().put("leaf", "value")
+        repeat(AgentToolCallValidator.MAX_SCHEMA_DEPTH + 1) {
+            nestedSchema = JSONObject().put("type", "object")
+                .put("properties", JSONObject().put("next", nestedSchema))
+                .put("required", JSONArray().put("next"))
+                .put("additionalProperties", false)
+            nestedArguments = JSONObject().put("next", nestedArguments)
+        }
+        val tools = mapOf(
+            "test.deep" to schema(
+                JSONObject().put("payload", nestedSchema),
+                JSONArray().put("payload")
+            )
+        )
+        val deepCall = call(name = "test.deep").put(
+            "function", JSONObject().put("name", "test.deep")
+                .put("arguments", JSONObject().put("payload", nestedArguments))
+        )
+
+        val result = AgentToolCallValidator.validate(JSONArray().put(deepCall), tools, 1)
+        assertTrue(result is AgentToolCallValidation.Invalid)
+        assertEquals(
+            "Tool arguments exceed the supported nesting depth.",
+            (result as AgentToolCallValidation.Invalid).reason
+        )
+    }
+
 }
