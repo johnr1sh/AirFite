@@ -1,3 +1,8 @@
+## 2026-11-26 (validated dependency refresh)
+- Merged Dependabot PRs [#5](https://github.com/johnr1sh/AirFite/pull/5), [#6](https://github.com/johnr1sh/AirFite/pull/6), [#7](https://github.com/johnr1sh/AirFite/pull/7), and [#8](https://github.com/johnr1sh/AirFite/pull/8). Updated DocumentFile 1.1.0, WorkManager 2.12.0, kotlinx-coroutines-android 1.11.0, and the test-only org.json dependency to 20260814.
+- Each dependency PR had an individual successful GitHub Actions run for unit tests, lint, and debug APK assembly before merge. The combined main-head workflow after all dependency merges and documentation updates is the final integration gate.
+- No dependency changes introduce broader storage permissions or workspace write/execute capabilities.
+
 ## 2026-11-26 (SAF responsiveness and Kotlin toolchain maintenance)
 - Merged PR [#9](https://github.com/johnr1sh/AirFite/pull/9) as commit [46f39d5](https://github.com/johnr1sh/AirFite/commit/46f39d53f40f6dc55fc85a816ae4e449d6faff56). SAF folder enumeration and file preview reads now run on `Dispatchers.IO`; superseded jobs are cancelled, operation-generation tokens prevent stale results from publishing after a workspace/file switch, and the Files UI shows loading states. Added four JVM tests for the operation gate.
 - PR validation run [45739503664](https://github.com/johnr1sh/AirFite/actions/runs/45739503664) passed unit tests, lint, and debug APK assembly. The first post-merge main run was cancelled by the next main push, so the current main-head run remains the integration gate.
