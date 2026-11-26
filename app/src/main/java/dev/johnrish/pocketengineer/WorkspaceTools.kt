@@ -7,6 +7,10 @@ import dev.johnrish.pocketengineer.workspace.WorkspacePath
 import dev.johnrish.pocketengineer.workspace.WorkspaceIgnoreRules
 import dev.johnrish.pocketengineer.workspace.SensitiveFileGuard
 import dev.johnrish.pocketengineer.workspace.WorkspaceSearchBudget
+import dev.johnrish.pocketengineer.workspace.WorkspaceToolDataSource
+import dev.johnrish.pocketengineer.workspace.WorkspaceToolEntry
+import dev.johnrish.pocketengineer.workspace.WorkspaceToolResult
+import dev.johnrish.pocketengineer.workspace.WorkspaceToolService
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
@@ -24,6 +28,26 @@ class WorkspaceTools(private val context: Context, private val treeUri: Uri) {
         const val MAX_SEARCH_TOTAL_BYTES = 2 * 1024 * 1024
         const val MAX_SEARCH_QUERY_CHARS = 256
         const val MAX_IGNORE_FILE_BYTES = 32 * 1024
+    }
+
+    private val toolService by lazy(LazyThreadSafetyMode.NONE) {
+        WorkspaceToolService(object : WorkspaceToolDataSource {
+            override fun listEntries(): List<WorkspaceToolEntry> =
+                this@WorkspaceTools.listFiles().map {
+                    WorkspaceToolEntry(it.relativePath, it.isDirectory, it.size)
+                }
+
+            override fun readTextFile(relativePath: String): String {
+                val path = WorkspacePath.parse(relativePath)
+                val entry = this@WorkspaceTools.listFiles().singleOrNull {
+                    it.relativePath == path.value && !it.isDirectory
+                } ?: throw SecurityException("Path is not a unique file inside the selected workspace.")
+                return readAgentReadableEntry(entry)
+            }
+
+            override fun searchFiles(query: String): List<String> =
+                this@WorkspaceTools.search(query)
+        })
     }
 
     fun listFiles(): List<WorkspaceEntry> {
@@ -183,19 +207,29 @@ class WorkspaceTools(private val context: Context, private val treeUri: Uri) {
                 .put("required", JSONArray().put("query")).put("additionalProperties", false))
     )
 
-    /** Local validated dispatch; a future MCP transport can reuse this entry point. */
-    fun callTool(name: String, arguments: JSONObject): JSONObject = when (name) {
-        "workspace.list_files" -> JSONObject().put("files", JSONArray().apply {
-            listFiles().forEach { put(JSONObject().put("path", it.relativePath).put("directory", it.isDirectory).put("size", it.size)) }
-        })
-        "workspace.read_file" -> {
-            val path = WorkspacePath.parse(arguments.optString("path")).value
-            // Exact match against the SAF listing is the actual access check; parse() only rejects unsafe syntax.
-            val entry = listFiles().firstOrNull { it.relativePath == path && !it.isDirectory }
-                ?: throw SecurityException("Path is not within the selected workspace.")
-            JSONObject().put("path", path).put("content", readAgentReadableEntry(entry))
+    /** Android-free dispatch policy; SAF authorization remains in the data-source adapter. */
+    fun callTool(name: String, arguments: JSONObject): JSONObject {
+        val values = linkedMapOf<String, Any?>()
+        val keys = arguments.keys()
+        while (keys.hasNext()) {
+            val key = keys.next()
+            values[key] = arguments.opt(key)
         }
-        "workspace.search_files" -> JSONObject().put("matches", JSONArray(search(arguments.optString("query"))))
-        else -> throw IllegalArgumentException("Unknown tool: $name")
+
+        return when (val result = toolService.execute(name, values)) {
+            is WorkspaceToolResult.FileList -> JSONObject().put("files", JSONArray().apply {
+                result.entries.forEach {
+                    put(JSONObject()
+                        .put("path", it.relativePath)
+                        .put("directory", it.isDirectory)
+                        .put("size", it.size))
+                }
+            })
+            is WorkspaceToolResult.FileContent -> JSONObject()
+                .put("path", result.path)
+                .put("content", result.content)
+            is WorkspaceToolResult.SearchMatches -> JSONObject()
+                .put("matches", JSONArray().apply { result.paths.forEach(::put) })
+        }
     }
 }
