@@ -36,7 +36,7 @@ jobs:
         with:
           gradle-version: "9.9.2"
       - name: Run unit tests, lint, and build APK
-        run: gradle testDebugUnitTest lintDebug assembleDebug --warning-mode=all
+        run: gradle testDebugUnitTest lintDebug assembleDebug --warning-mode=all --stacktrace
       - uses: actions/upload-artifact@v7
         with:
           name: AirFite-debug-apk
