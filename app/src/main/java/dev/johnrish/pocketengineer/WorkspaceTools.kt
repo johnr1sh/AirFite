@@ -229,7 +229,7 @@ class WorkspaceTools(private val context: Context, private val treeUri: Uri) {
                 .put("path", result.path)
                 .put("content", result.content)
             is WorkspaceToolResult.SearchMatches -> JSONObject()
-                .put("matches", JSONArray().apply { result.paths.forEach(::put) })
+                .put("matches", JSONArray().apply { result.paths.forEach { put(it) } })
         }
     }
 }
