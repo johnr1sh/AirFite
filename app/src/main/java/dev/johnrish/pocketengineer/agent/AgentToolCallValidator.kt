@@ -29,6 +29,9 @@ object AgentToolCallValidator {
     const val MAX_TOOL_NAME_LENGTH = 128
     const val MAX_ARGUMENTS_CHARS = 16 * 1024
     const val MIN_RESULT_LIMIT_CHARS = 256
+    const val MAX_SCHEMA_DEPTH = 8
+    const val MAX_OBJECT_PROPERTIES = 64
+    const val MAX_ARRAY_ITEMS = 128
 
     fun validate(
         calls: JSONArray,
@@ -92,16 +95,44 @@ object AgentToolCallValidator {
         return AgentToolCallValidation.Valid(validated.toList())
     }
 
-    private fun validateArguments(arguments: JSONObject, schema: JSONObject): String? {
+    private fun validateArguments(arguments: JSONObject, schema: JSONObject): String? =
+        validateObject(arguments, schema, depth = 0)
+
+    private fun validateObject(arguments: JSONObject, schema: JSONObject, depth: Int): String? {
+        if (depth > MAX_SCHEMA_DEPTH) return "Tool arguments exceed the supported nesting depth."
         if (schema.optString("type") != "object") return "Registered tool has an unsupported argument schema."
+        if (arguments.length() > MAX_OBJECT_PROPERTIES) return "Tool arguments contain too many object properties."
+
+        if (schema.has("properties") && schema.optJSONObject("properties") == null) {
+            return "Registered tool has an invalid object-property schema."
+        }
+        if (schema.has("required") && schema.optJSONArray("required") == null) {
+            return "Registered tool has an invalid required-field schema."
+        }
+        if (schema.has("additionalProperties") && schema.opt("additionalProperties") !is Boolean) {
+            return "Registered tool has an invalid additional-properties rule."
+        }
+
         val properties = schema.optJSONObject("properties") ?: JSONObject()
+        if (properties.length() > MAX_OBJECT_PROPERTIES) {
+            return "Registered tool schema contains too many object properties."
+        }
         val required = schema.optJSONArray("required") ?: JSONArray()
         for (index in 0 until required.length()) {
-            val key = required.optString(index)
-            if (!arguments.has(key) || arguments.opt(key) == JSONObject.NULL) {
+            val key = required.opt(index) as? String
+                ?: return "Registered tool has an invalid required-field entry."
+            if (key.isEmpty() || !arguments.has(key) || arguments.opt(key) == JSONObject.NULL) {
                 return "Tool arguments are missing a required field."
             }
         }
+
+        val propertyKeys = properties.keys()
+        while (propertyKeys.hasNext()) {
+            if (properties.optJSONObject(propertyKeys.next()) == null) {
+                return "Registered tool has an invalid property definition."
+            }
+        }
+
         val allowAdditional = schema.optBoolean("additionalProperties", true)
         val keys = arguments.keys()
         while (keys.hasNext()) {
@@ -112,14 +143,14 @@ object AgentToolCallValidator {
                 if (!allowAdditional) return "Tool arguments contain an unsupported field."
                 continue
             }
-            val valueError = validateValue(value, property)
+            val valueError = validateValue(value, property, depth + 1)
             if (valueError != null) return valueError
         }
         return null
     }
 
-    /** Validate supported JSON Schema constraints without coercing provider input. */
-    private fun validateValue(value: Any?, schema: JSONObject): String? {
+    /** Validate supported JSON Schema constraints recursively without coercing provider input. */
+    private fun validateValue(value: Any?, schema: JSONObject, depth: Int): String? {
         if (!matchesType(value, schema.optString("type"))) {
             return "Tool argument type does not match the registered schema."
         }
@@ -141,17 +172,28 @@ object AgentToolCallValidator {
                 return "Tool argument number is above the registered maximum."
             }
         }
+        if (value is JSONObject) {
+            val nestedError = validateObject(value, schema, depth)
+            if (nestedError != null) return nestedError
+        }
         if (value is JSONArray) {
+            if (depth > MAX_SCHEMA_DEPTH) return "Tool arguments exceed the supported nesting depth."
             val minItems = schema.optInt("minItems", 0)
-            val maxItems = schema.optInt("maxItems", Int.MAX_VALUE)
-            if (minItems < 0 || maxItems < minItems) return "Registered tool has invalid array-size constraints."
+            val declaredMaxItems = schema.optInt("maxItems", MAX_ARRAY_ITEMS)
+            if (minItems < 0 || declaredMaxItems < minItems) {
+                return "Registered tool has invalid array-size constraints."
+            }
+            val maxItems = minOf(declaredMaxItems, MAX_ARRAY_ITEMS)
             if (value.length() < minItems || value.length() > maxItems) {
                 return "Tool argument array length is outside the registered bounds."
             }
             val itemSchema = schema.optJSONObject("items")
+            if (schema.has("items") && itemSchema == null) {
+                return "Registered tool has an invalid array-item schema."
+            }
             if (itemSchema != null) {
                 for (index in 0 until value.length()) {
-                    if (validateValue(value.opt(index), itemSchema) != null) {
+                    if (validateValue(value.opt(index), itemSchema, depth + 1) != null) {
                         return "Tool argument array contains an invalid item."
                     }
                 }
