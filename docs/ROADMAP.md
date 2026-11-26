@@ -13,6 +13,7 @@ Updated: 2026-11-26
 - [x] Add provider connectivity diagnostic against OpenAI-compatible `/models`
 - [x] Centralize AGP, Kotlin, and Compose compiler plugin versions in a Gradle version catalog; Kotlin and Compose compiler plugins now share Kotlin 2.4.21
 - [x] Configure weekly Dependabot version updates for Gradle dependencies and GitHub Actions
+- [x] Refresh validated dependencies: DocumentFile 1.1.0, WorkManager 2.12.0, kotlinx-coroutines 1.11.0, and org.json 20260814 (test scope)
 - [x] Preserve encrypted API key when saving settings with key field blank
 - [x] Add workspace refresh and bounded search scan
 - [x] Add connection/session state model and tests (`agent/ConnectionSession`; pure Kotlin, not yet wired to a transport or UI)
