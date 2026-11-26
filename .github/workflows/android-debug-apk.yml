@@ -4,11 +4,13 @@ on:
   push:
     paths:
       - "**/*.gradle.kts"
+      - "gradle/**"
       - "**/gradle.properties"
       - "app/**"
       - "README.md"
       - "docs/**"
       - ".github/workflows/android-debug-apk.yml"
+      - ".github/dependabot.yml"
   workflow_dispatch:
 
 concurrency:

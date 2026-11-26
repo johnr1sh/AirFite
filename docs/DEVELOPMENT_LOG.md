@@ -1,3 +1,10 @@
+## 2026-11-26 (centralize Kotlin and Compose plugin versions)
+- Moved Android Gradle Plugin, Kotlin Gradle Plugin, and Compose compiler plugin versions into the standard Gradle version catalog. Both Kotlin plugins now reference the single Kotlin version (2.3.21), correcting the prior mismatch where the Compose plugin was 2.0.21.
+- Added weekly Dependabot version updates for Gradle manifests and GitHub Actions.
+- Expanded Android CI path filters so version-catalog and Dependabot configuration changes run unit tests, lint, and APK assembly.
+- Baseline verification before this change: main run [45552442418](https://github.com/johnr1sh/AirFite/actions/runs/45552442418) passed unit tests, lint, and debug APK assembly. This commit still requires its own workflow result.
+- Gradle 8.14.8's setup-action out-of-date notice remains. A Gradle 9.9.2 trial failed during AGP 8.13.2 plugin application; upgrade AGP and migrate to built-in Kotlin only as a separately tested compatibility change.
+
 ## 2026-11-25 (enforce actual workspace search I/O budget)
 - Changed workspace search to account for bytes actually read instead of trusting Storage Access Framework file-size metadata, which may be stale or under-reported.
 - Each search read now receives only the remaining aggregate byte allowance and reads at most that many bytes. Failed/binary reads conservatively consume their reservation so repeated failures cannot evade the total I/O budget.
