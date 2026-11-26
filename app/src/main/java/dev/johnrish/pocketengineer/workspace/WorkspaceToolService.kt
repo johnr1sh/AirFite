@@ -66,11 +66,12 @@ class WorkspaceToolService(
                 requireOnlyKeys(arguments, setOf(QUERY_ARGUMENT))
                 val query = arguments[QUERY_ARGUMENT] as? String
                     ?: throw IllegalArgumentException("Search query must be a string.")
-                if (query.length > maxSearchQueryChars) {
+                val needle = query.trim()
+                if (needle.length > maxSearchQueryChars) {
                     throw IllegalArgumentException("Search query exceeds the $maxSearchQueryChars character limit.")
                 }
                 WorkspaceToolResult.SearchMatches(
-                    if (query.isBlank()) emptyList() else dataSource.searchFiles(query.trim()).toList()
+                    if (needle.isEmpty()) emptyList() else dataSource.searchFiles(needle).toList()
                 )
             }
 
