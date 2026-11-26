@@ -1,3 +1,9 @@
+## 2026-11-26 (recursive provider tool-schema validation)
+- Fixed a validation gap where nested JSON objects were type-checked but their required fields, property types, and `additionalProperties` rules were not recursively enforced. Array item schemas now recursively validate object contents as well.
+- Added hard bounds for schema nesting depth, object property count, and array item count so provider-controlled nested arguments cannot drive unbounded recursive validation or oversized container traversal.
+- Added regression tests for valid nested objects, missing nested required fields, unexpected nested properties, wrong nested types, object items inside arrays, and excessive nesting depth.
+- The validator remains deny-by-default: the entire provider tool-call batch is validated before any call is dispatched. No workspace write or execution capability was added.
+
 ## 2026-11-26 (validated dependency refresh)
 - Merged Dependabot PRs [#5](https://github.com/johnr1sh/AirFite/pull/5), [#6](https://github.com/johnr1sh/AirFite/pull/6), [#7](https://github.com/johnr1sh/AirFite/pull/7), and [#8](https://github.com/johnr1sh/AirFite/pull/8). Updated DocumentFile 1.1.0, WorkManager 2.12.0, kotlinx-coroutines-android 1.11.0, and the test-only org.json dependency to 20260814.
 - Each dependency PR had an individual successful GitHub Actions run for unit tests, lint, and debug APK assembly before merge. The combined main-head workflow after all dependency merges and documentation updates is the final integration gate.
