@@ -122,6 +122,36 @@ class AgentToolCallValidatorTest {
         assertEquals("Provider requested too many tools in one round.", (result as AgentToolCallValidation.Invalid).reason)
     }
 
+
+    @Test
+    fun acceptsBoundedPatchArgumentsAndRejectsArgumentsAboveTheGlobalLimit() {
+        val patchSchema = schema(
+            JSONObject()
+                .put("path", JSONObject().put("type", "string").put("minLength", 1).put("maxLength", 1024))
+                .put("expectedText", JSONObject().put("type", "string").put("minLength", 1).put("maxLength", 4096))
+                .put("replacementText", JSONObject().put("type", "string").put("maxLength", 4096))
+                .put("rationale", JSONObject().put("type", "string").put("minLength", 1).put("maxLength", 400)),
+            JSONArray().put("path").put("expectedText").put("replacementText").put("rationale")
+        )
+        val tools = mapOf("workspace.propose_patch" to patchSchema)
+        val valid = JSONObject()
+            .put("path", "src/Main.kt")
+            .put("expectedText", "old")
+            .put("replacementText", "new")
+            .put("rationale", "Fix the value.")
+        val validCall = call(name = "workspace.propose_patch").put(
+            "function", JSONObject().put("name", "workspace.propose_patch").put("arguments", valid)
+        )
+        assertTrue(AgentToolCallValidator.validate(JSONArray().put(validCall), tools, 1) is AgentToolCallValidation.Valid)
+
+        val oversized = call(
+            name = "workspace.propose_patch",
+            arguments = " ".repeat(AgentToolCallValidator.MAX_ARGUMENTS_CHARS + 1)
+        )
+        val result = AgentToolCallValidator.validate(JSONArray().put(oversized), tools, 1)
+        assertTrue(result is AgentToolCallValidation.Invalid)
+    }
+
     @Test
     fun boundedResultKeepsSmallResultsUnchanged() {
         val result = JSONObject().put("matches", JSONArray().put("README.md"))

@@ -1,3 +1,11 @@
+## 2026-11-27 (read-only patch proposal foundation)
+- Added \`workspace.propose_patch\`, a read-only tool that prepares a bounded single-file preview from an exact source anchor. The anchor must match exactly once and cover complete lines; stale, ambiguous, partial-line, oversized, no-op, sensitive-path, and credential-introducing proposals are rejected.
+- Returned before/after snippets, a focused diff preview, line number, and SHA-256 fingerprints of the current and proposed file contents. The workspace data-source interface still has no write method, so the tool cannot modify a file.
+- Expanded the provider tool-argument envelope to 32 KiB while keeping per-snippet limits at 4 KiB, rationale at 400 characters, patch source at 512 Ki characters, and the existing per-round tool-call cap.
+- Updated the agent instructions to require a proposal preview for requested code changes and to state clearly that no file was changed.
+- Added JVM regression coverage for successful previews, non-mutation, CRLF files, stale and ambiguous anchors, partial-line anchors, sensitive paths, credential introduction, no-op patches, snippet limits, and provider argument bounds.
+- Remaining gate: explicit user approval, atomic SAF write, backup, and undo are not implemented. No workspace write or command-execution capability was added.
+
 ## 2026-11-27 (foreground provider cancellation and shared HTTP adapter)
 - Replaced blocking foreground OkHttp `execute()` calls for chat, model discovery, and provider checks with a shared coroutine-aware callback adapter. The background WorkManager worker now uses the same adapter rather than maintaining a second implementation.
 - The adapter connects coroutine cancellation to `Call.cancel()`, closes an in-progress response if cancellation races body delivery, consumes response bodies under the existing byte limits, and closes responses before handing bounded text to callers.

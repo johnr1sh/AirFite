@@ -27,7 +27,7 @@ sealed interface AgentToolCallValidation {
 object AgentToolCallValidator {
     const val MAX_ID_LENGTH = 128
     const val MAX_TOOL_NAME_LENGTH = 128
-    const val MAX_ARGUMENTS_CHARS = 16 * 1024
+    const val MAX_ARGUMENTS_CHARS = 32 * 1024
     const val MIN_RESULT_LIMIT_CHARS = 256
     const val MAX_SCHEMA_DEPTH = 8
     const val MAX_OBJECT_PROPERTIES = 64

@@ -199,6 +199,17 @@ class WorkspaceTools(private val context: Context, private val treeUri: Uri) {
                 .put("properties", JSONObject().put("path", JSONObject().put("type", "string")))
                 .put("required", JSONArray().put("path")).put("additionalProperties", false))
     ).put(
+        JSONObject().put("name", "workspace.propose_patch")
+            .put("description", "Prepare a read-only, single-file patch preview. The expectedText must match exactly once and cover complete lines. This tool never modifies files.")
+            .put("inputSchema", JSONObject().put("type", "object")
+                .put("properties", JSONObject()
+                    .put("path", JSONObject().put("type", "string").put("minLength", 1).put("maxLength", WorkspacePath.MAX_LENGTH))
+                    .put("expectedText", JSONObject().put("type", "string").put("minLength", 1).put("maxLength", WorkspaceToolService.MAX_PATCH_SNIPPET_CHARS))
+                    .put("replacementText", JSONObject().put("type", "string").put("maxLength", WorkspaceToolService.MAX_PATCH_SNIPPET_CHARS))
+                    .put("rationale", JSONObject().put("type", "string").put("minLength", 1).put("maxLength", WorkspaceToolService.MAX_PATCH_RATIONALE_CHARS)))
+                .put("required", JSONArray().put("path").put("expectedText").put("replacementText").put("rationale"))
+                .put("additionalProperties", false))
+    ).put(
         JSONObject().put("name", "workspace.search_files")
             .put("description", "Search text in eligible workspace files.")
             .put("inputSchema", JSONObject().put("type", "object")
@@ -230,6 +241,18 @@ class WorkspaceTools(private val context: Context, private val treeUri: Uri) {
                 .put("content", result.content)
             is WorkspaceToolResult.SearchMatches -> JSONObject()
                 .put("matches", JSONArray().apply { result.paths.forEach { put(it) } })
+            is WorkspaceToolResult.PatchProposal -> JSONObject()
+                .put("status", "proposal_only")
+                .put("applied", false)
+                .put("path", result.path)
+                .put("rationale", result.rationale)
+                .put("lineNumber", result.lineNumber)
+                .put("before", result.before)
+                .put("after", result.after)
+                .put("diffPreview", result.diffPreview)
+                .put("baseSha256", result.baseSha256)
+                .put("proposedSha256", result.proposedSha256)
+                .put("message", "Preview only. No workspace file was changed.")
         }
     }
 }
