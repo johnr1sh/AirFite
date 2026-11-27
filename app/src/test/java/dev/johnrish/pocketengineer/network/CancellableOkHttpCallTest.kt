@@ -67,7 +67,7 @@ class CancellableOkHttpCallTest {
         assertTrue(call.enqueued.await(2, TimeUnit.SECONDS))
         val callbackThread = Thread {
             call.callback!!.onResponse(call, response(request, body))
-        }
+        }.apply { isDaemon = true }
         callbackThread.start()
 
         assertTrue(body.readStarted.await(2, TimeUnit.SECONDS))
