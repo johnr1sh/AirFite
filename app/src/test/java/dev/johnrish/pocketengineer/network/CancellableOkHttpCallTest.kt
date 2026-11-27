@@ -153,20 +153,24 @@ class CancellableOkHttpCallTest {
         override fun contentType(): MediaType? = null
         override fun contentLength(): Long = -1
         override fun source(): BufferedSource = bufferedSource
+
+        override fun close() {
+            closed.set(true)
+            super.close()
+        }
     }
 
     private class TrackingBody(private val value: String) : ResponseBody() {
         val closed = AtomicBoolean(false)
-        private val delegate = Buffer().writeUtf8(value)
-        private val bufferedSource: BufferedSource = object : BufferedSource by delegate {
-            override fun close() {
-                closed.set(true)
-                delegate.close()
-            }
-        }
+        private val bufferedSource = Buffer().writeUtf8(value)
 
         override fun contentType(): MediaType? = null
         override fun contentLength(): Long = value.toByteArray(Charsets.UTF_8).size.toLong()
         override fun source(): BufferedSource = bufferedSource
+
+        override fun close() {
+            closed.set(true)
+            super.close()
+        }
     }
 }
