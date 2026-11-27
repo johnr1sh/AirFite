@@ -16,7 +16,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import dev.johnrish.pocketengineer.workspace.WorkspaceOperationGate
+import dev.johnrish.pocketengineer.network.executeCancellable
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -36,12 +39,16 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         .readTimeout(60, TimeUnit.SECONDS)
         .callTimeout(90, TimeUnit.SECONDS)
         .build()
+    private var chatJob: Job? = null
+    private var stopRequested = false
     var historyWarning by androidx.compose.runtime.mutableStateOf<String?>(null)
         private set
     var messages by androidx.compose.runtime.mutableStateOf(loadMessages(prefs))
         private set
     var input by androidx.compose.runtime.mutableStateOf("")
     var busy by androidx.compose.runtime.mutableStateOf(false)
+    var generationStatus by androidx.compose.runtime.mutableStateOf<String?>(null)
+        private set
     var baseUrl by androidx.compose.runtime.mutableStateOf(prefs.getString("baseUrl", "https://api.openai.com/v1") ?: "")
     var apiKey by androidx.compose.runtime.mutableStateOf(loadApiKey(app))
     var model by androidx.compose.runtime.mutableStateOf(prefs.getString("model", "gpt-4o-mini") ?: "")
@@ -187,22 +194,30 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         loadingModels = true
         connectionStatus = "Loading models…"
         viewModelScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching {
+            try {
+                val models = withContext(Dispatchers.IO) {
                     val request = Request.Builder().url("$endpoint/models")
                         .header("Authorization", "Bearer ${apiKey.trim()}").get().build()
-                    client.newCall(request).execute().use { response ->
-                        if (!response.isSuccessful) throw IllegalStateException("Provider returned HTTP ${response.code}.")
-                        val data = JSONObject(readBoundedBody(response, MAX_MODELS_RESPONSE_BYTES)).optJSONArray("data")
-                            ?: throw IllegalStateException("Provider response did not include a models list.")
-                        (0 until data.length()).mapNotNull { data.optJSONObject(it)?.optString("id")?.takeIf(String::isNotBlank) }
-                            .distinct().sorted()
+                    val response = client.executeCancellable(request, MAX_MODELS_RESPONSE_BYTES)
+                    if (!response.isSuccessful) {
+                        throw IllegalStateException("Provider returned HTTP ${response.code}.")
                     }
+                    val data = JSONObject(response.body).optJSONArray("data")
+                        ?: throw IllegalStateException("Provider response did not include a models list.")
+                    (0 until data.length()).mapNotNull {
+                        data.optJSONObject(it)?.optString("id")?.takeIf(String::isNotBlank)
+                    }.distinct().sorted()
                 }
+                availableModels = models
+                connectionStatus = "Loaded ${models.size} models."
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                availableModels = emptyList()
+                connectionStatus = "Model fetch failed: ${error.message ?: "Unknown error"}"
+            } finally {
+                loadingModels = false
             }
-            availableModels = result.getOrElse { emptyList() }
-            connectionStatus = if (result.isSuccess) "Loaded ${availableModels.size} models." else "Model fetch failed: ${result.exceptionOrNull()?.message ?: "Unknown error"}"
-            loadingModels = false
         }
     }
 
@@ -220,21 +235,26 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         testingConnection = true
         connectionStatus = "Checking provider…"
         viewModelScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching {
+            try {
+                val status = withContext(Dispatchers.IO) {
                     val request = Request.Builder().url("$endpoint/models")
                         .header("Authorization", "Bearer ${apiKey.trim()}")
                         .get().build()
-                    client.newCall(request).execute().use { response ->
-                        if (!response.isSuccessful) throw IllegalStateException("Provider returned HTTP ${response.code}. Check endpoint and key.")
-                        val json = JSONObject(readBoundedBody(response, MAX_MODELS_RESPONSE_BYTES))
-                        val models = json.optJSONArray("data")
-                        "Connected successfully${models?.let { " · ${it.length()} models available" } ?: ""}."
+                    val response = client.executeCancellable(request, MAX_MODELS_RESPONSE_BYTES)
+                    if (!response.isSuccessful) {
+                        throw IllegalStateException("Provider returned HTTP ${response.code}. Check endpoint and key.")
                     }
+                    val models = JSONObject(response.body).optJSONArray("data")
+                    "Connected successfully${models?.let { " · ${it.length()} models available" } ?: ""}."
                 }
+                connectionStatus = status
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                connectionStatus = "Connection failed: ${error.message ?: "Unknown error"}"
+            } finally {
+                testingConnection = false
             }
-            connectionStatus = result.getOrElse { "Connection failed: ${it.message ?: "Unknown error"}" }
-            testingConnection = false
         }
     }
 
@@ -409,12 +429,15 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         val attachedName = pendingContextName
         val attachedContent = pendingContextContent
         val priorMessages = messages.takeLast(MAX_HISTORY_MESSAGES)
-        val displayPrompt = if (attachedName != null) "${prompt}\n[Attached file: $attachedName]" else prompt
-        messages = messages + ChatMessage("user", displayPrompt)
+        val displayPrompt = if (attachedName != null) "$prompt\n[Attached file: $attachedName]" else prompt
+        val submittedMessage = ChatMessage("user", displayPrompt)
+        messages = messages + submittedMessage
         persistMessages()
         removePendingContext()
         busy = true
-        viewModelScope.launch {
+        generationStatus = null
+        stopRequested = false
+        chatJob = viewModelScope.launch {
             try {
                 val reply = withContext(Dispatchers.IO) {
                     requestReply(prompt, attachedName, attachedContent, priorMessages)
@@ -422,19 +445,41 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 messages = messages + ChatMessage("assistant", reply)
                 persistMessages()
                 if (input.trim() == prompt) input = ""
-            } catch (e: Exception) {
-                messages = messages + ChatMessage("assistant", "Request failed: ${e.message ?: "Unknown error"}. Your prompt is preserved; retry when ready.")
+            } catch (cancelled: CancellationException) {
+                if (stopRequested && messages.lastOrNull() == submittedMessage) {
+                    messages = messages.dropLast(1)
+                    persistMessages()
+                    generationStatus = "Generation stopped. Your prompt is still in the composer."
+                }
+                throw cancelled
+            } catch (error: Exception) {
+                messages = messages + ChatMessage(
+                    "assistant",
+                    "Request failed: ${error.message ?: "Unknown error"}. Your prompt is preserved; retry when ready."
+                )
                 persistMessages()
-            } finally { busy = false }
+            } finally {
+                busy = false
+                chatJob = null
+                stopRequested = false
+            }
         }
     }
 
-    private fun requestReply(
+    fun stopGeneration() {
+        if (!busy) return
+        stopRequested = true
+        generationStatus = "Stopping response…"
+        chatJob?.cancel(CancellationException("Generation stopped by user"))
+    }
+
+    private suspend fun requestReply(
         prompt: String,
         contextName: String?,
         contextContent: String?,
         priorMessages: List<ChatMessage>
     ): String {
+        currentCoroutineContext().ensureActive()
         if (apiKey.isBlank()) throw IllegalStateException("Add your API key in Settings first.")
         val base = ProviderEndpoint.normalize(baseUrl) ?: throw IllegalStateException(ProviderEndpoint.ERROR_MESSAGE)
         val endpoint = "$base/chat/completions"
@@ -487,12 +532,13 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         repeat(MAX_AGENT_TOOL_ROUNDS + 1) { round ->
+            currentCoroutineContext().ensureActive()
             val body = JSONObject().put("model", model.trim()).put("messages", messages)
             if (tools != null && tools.length() > 0) body.put("tools", tools).put("tool_choice", "auto")
             val request = Request.Builder().url(endpoint).header("Authorization", "Bearer ${apiKey.trim()}")
                 .header("Content-Type", "application/json").post(body.toString().toRequestBody("application/json".toMediaType())).build()
-            client.newCall(request).execute().use { response ->
-                val raw = readBoundedBody(response, MAX_CHAT_RESPONSE_BYTES)
+            client.executeCancellable(request, MAX_CHAT_RESPONSE_BYTES).let { response ->
+                val raw = response.body
                 if (!response.isSuccessful) {
                     val providerMessage = runCatching { JSONObject(raw).optJSONObject("error")?.optString("message") }.getOrNull()
                     throw IllegalStateException("HTTP ${response.code}${providerMessage?.takeIf { it.isNotBlank() }?.let { ": ${it.take(400)}" } ?: ""}")
@@ -524,35 +570,18 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 // Do not dispatch until the complete provider batch has passed validation.
                 messages.put(normalizedMessage)
                 for (call in validatedCalls) {
+                    currentCoroutineContext().ensureActive()
                     val result = runCatching {
                         workspaceTools?.callTool(call.name, call.arguments)
                             ?: JSONObject().put("error", "No workspace is selected.")
                     }.getOrElse { JSONObject().put("error", it.message ?: "Tool execution failed.") }
+                    currentCoroutineContext().ensureActive()
                     val toolOutput = AgentToolCallValidator.boundedResult(result, MAX_AGENT_TOOL_RESULT_CHARS)
                     messages.put(JSONObject().put("role", "tool").put("tool_call_id", call.id).put("content", toolOutput))
                 }
             }
         }
         throw IllegalStateException("Agent stopped without a final response.")
-    }
-
-    /** Reads provider responses with a hard cap to prevent oversized bodies from exhausting memory. */
-    private fun readBoundedBody(response: okhttp3.Response, maxBytes: Int): String {
-        val body = response.body ?: return ""
-        if (body.contentLength() > maxBytes) throw IllegalStateException("Provider response exceeds the ${maxBytes / (1024 * 1024)} MB limit.")
-        body.byteStream().use { input ->
-            val output = java.io.ByteArrayOutputStream()
-            val buffer = ByteArray(8192)
-            var total = 0
-            while (true) {
-                val count = input.read(buffer)
-                if (count < 0) break
-                total += count
-                if (total > maxBytes) throw IllegalStateException("Provider response exceeds the ${maxBytes / (1024 * 1024)} MB limit.")
-                output.write(buffer, 0, count)
-            }
-            return output.toString(Charsets.UTF_8.name())
-        }
     }
 
     companion object {
