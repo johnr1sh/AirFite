@@ -127,6 +127,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             .remove(LEGACY_CHAT_HISTORY)
             .apply()
         historyWarning = null
+        generationStatus = null
         input = ""
         removePendingContext()
     }
