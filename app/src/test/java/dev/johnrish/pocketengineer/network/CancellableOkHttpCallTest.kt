@@ -15,8 +15,10 @@ import okio.Buffer
 import okio.BufferedSource
 import okio.ForwardingSource
 import okio.Timeout
+import okio.Source
 import okio.buffer
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.concurrent.CountDownLatch
@@ -53,6 +55,28 @@ class CancellableOkHttpCallTest {
         val lateBody = TrackingBody("late")
         call.callback!!.onResponse(call, response(request, lateBody))
         assertTrue(lateBody.closed.get())
+    }
+
+    @Test
+    fun cancellationDuringBodyReadClosesTheResponseStream() = runBlocking {
+        val request = request()
+        val call = RecordingCall(request)
+        val body = BlockingBody()
+        val pending = launch { factory(call).executeCancellable(request, maxBodyBytes = 32) }
+
+        assertTrue(call.enqueued.await(2, TimeUnit.SECONDS))
+        val callbackThread = Thread {
+            call.callback!!.onResponse(call, response(request, body))
+        }
+        callbackThread.start()
+
+        assertTrue(body.readStarted.await(2, TimeUnit.SECONDS))
+        pending.cancelAndJoin()
+        callbackThread.join(2_000)
+
+        assertTrue(call.cancelled)
+        assertTrue(body.closed.get())
+        assertFalse(callbackThread.isAlive)
     }
 
     @Test
@@ -108,6 +132,28 @@ class CancellableOkHttpCallTest {
         override fun isCanceled(): Boolean = cancelled
         override fun timeout(): Timeout = Timeout.NONE
         override fun clone(): Call = RecordingCall(originalRequest)
+    }
+
+    private class BlockingBody : ResponseBody() {
+        val readStarted = CountDownLatch(1)
+        val closed = AtomicBoolean(false)
+        private val bufferedSource: BufferedSource = object : Source {
+            override fun read(sink: Buffer, byteCount: Long): Long {
+                readStarted.countDown()
+                while (!closed.get()) Thread.sleep(2)
+                throw java.io.IOException("Response body was closed.")
+            }
+
+            override fun timeout(): Timeout = Timeout.NONE
+
+            override fun close() {
+                closed.set(true)
+            }
+        }.buffer()
+
+        override fun contentType(): MediaType? = null
+        override fun contentLength(): Long = -1
+        override fun source(): BufferedSource = bufferedSource
     }
 
     private class TrackingBody(private val value: String) : ResponseBody() {
