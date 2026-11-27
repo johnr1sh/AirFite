@@ -136,17 +136,24 @@ class CancellableOkHttpCallTest {
     private class BlockingBody : ResponseBody() {
         val readStarted = CountDownLatch(1)
         val closed = AtomicBoolean(false)
+        private val releaseRead = CountDownLatch(1)
         private val bufferedSource: BufferedSource = object : Source {
             override fun read(sink: Buffer, byteCount: Long): Long {
+                if (byteCount == 0L) return 0
                 readStarted.countDown()
-                while (!closed.get()) Thread.sleep(2)
-                throw java.io.IOException("Response body was closed.")
+                releaseRead.await(2, TimeUnit.SECONDS)
+                if (closed.get()) throw java.io.IOException("Response body was closed.")
+                val bytes = "late".toByteArray(Charsets.UTF_8)
+                val count = minOf(byteCount, bytes.size.toLong()).toInt()
+                sink.write(bytes, 0, count)
+                return count.toLong()
             }
 
             override fun timeout(): Timeout = Timeout.NONE
 
             override fun close() {
                 closed.set(true)
+                releaseRead.countDown()
             }
         }.buffer()
 
