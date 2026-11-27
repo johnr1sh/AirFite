@@ -13,7 +13,6 @@ import okhttp3.Response
 import okhttp3.ResponseBody
 import okio.Buffer
 import okio.BufferedSource
-import okio.ForwardingSource
 import okio.Timeout
 import okio.Source
 import okio.buffer
@@ -54,7 +53,7 @@ class CancellableOkHttpCallTest {
 
         val lateBody = TrackingBody("late")
         call.callback!!.onResponse(call, response(request, lateBody))
-        assertTrue(lateBody.closed.get())
+        assertTrue("Late callback response must be closed.", lateBody.closed.get())
     }
 
     @Test
@@ -158,13 +157,13 @@ class CancellableOkHttpCallTest {
 
     private class TrackingBody(private val value: String) : ResponseBody() {
         val closed = AtomicBoolean(false)
-        private val bufferedSource: BufferedSource =
-            object : ForwardingSource(Buffer().writeUtf8(value)) {
-                override fun close() {
-                    closed.set(true)
-                    super.close()
-                }
-            }.buffer()
+        private val delegate = Buffer().writeUtf8(value)
+        private val bufferedSource: BufferedSource = object : BufferedSource by delegate {
+            override fun close() {
+                closed.set(true)
+                delegate.close()
+            }
+        }
 
         override fun contentType(): MediaType? = null
         override fun contentLength(): Long = value.toByteArray(Charsets.UTF_8).size.toLong()
