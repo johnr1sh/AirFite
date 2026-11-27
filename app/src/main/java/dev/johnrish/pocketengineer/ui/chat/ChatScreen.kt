@@ -27,6 +27,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Description
@@ -96,6 +97,9 @@ fun ChatScreen(
         vm.historyWarning?.let { warning ->
             InlineNotice(text = warning, isError = true)
         }
+        vm.generationStatus?.let { status ->
+            InlineNotice(text = status, isError = false)
+        }
         LazyColumn(
             modifier = Modifier.weight(1f).fillMaxWidth(),
             state = listState,
@@ -141,11 +145,15 @@ fun ChatScreen(
                 )
                 Spacer(Modifier.width(8.dp))
                 FilledIconButton(
-                    onClick = { vm.send() },
-                    enabled = vm.input.isNotBlank() && !vm.busy,
+                    onClick = { if (vm.busy) vm.stopGeneration() else vm.send() },
+                    enabled = vm.busy || vm.input.isNotBlank(),
                     modifier = Modifier.size(48.dp)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send message")
+                    if (vm.busy) {
+                        Icon(Icons.Filled.Stop, contentDescription = "Stop response generation")
+                    } else {
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send message")
+                    }
                 }
             }
         }
