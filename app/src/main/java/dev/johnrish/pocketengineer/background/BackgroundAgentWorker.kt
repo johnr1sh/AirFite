@@ -17,20 +17,14 @@ import androidx.work.WorkerParameters
 import dev.johnrish.pocketengineer.MainActivity
 import dev.johnrish.pocketengineer.ProviderEndpoint
 import dev.johnrish.pocketengineer.SecureKeyStore
+import dev.johnrish.pocketengineer.network.executeCancellable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import okhttp3.Call
-import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.Response
 import okhttp3.RequestBody.Companion.toRequestBody
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
-import java.util.concurrent.atomic.AtomicReference
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
@@ -68,7 +62,7 @@ class BackgroundAgentWorker(context: Context, params: WorkerParameters) : Corout
                 .readTimeout(90, TimeUnit.SECONDS)
                 .callTimeout(120, TimeUnit.SECONDS)
                 .build()
-            executeCancellable(client, request).use { response ->
+            client.executeCancellable(request, MAX_RESPONSE_BYTES).let { response ->
                 if (!response.isSuccessful) {
                     val status = response.code
                     if (BackgroundRetryPolicy.isRetryableHttpStatus(status)) {
@@ -76,7 +70,7 @@ class BackgroundAgentWorker(context: Context, params: WorkerParameters) : Corout
                     }
                     throw IllegalStateException("Provider returned HTTP $status.")
                 }
-                val raw = readBounded(response, MAX_RESPONSE_BYTES)
+                val raw = response.body
                 val answer = JSONObject(raw).optJSONArray("choices")?.optJSONObject(0)
                     ?.optJSONObject("message")?.optString("content")?.takeIf { it.isNotBlank() }
                     ?: throw IllegalStateException("Provider returned an empty response.")
@@ -111,52 +105,6 @@ class BackgroundAgentWorker(context: Context, params: WorkerParameters) : Corout
             BackgroundTaskStore.update(applicationContext, record.copy(status = "Failed", error = (e.message ?: "Task failed").take(240)))
             notifyUser(id, "Background task failed", "Open AirFite to review the task.")
             Result.failure()
-        }
-    }
-
-    /**
-     * Cancels the actual OkHttp call when WorkManager cancels this coroutine.
-     * The response is also closed if cancellation races callback delivery.
-     */
-    private suspend fun executeCancellable(client: OkHttpClient, request: Request): Response =
-        suspendCancellableCoroutine { continuation ->
-            val call = client.newCall(request)
-            val responseRef = AtomicReference<Response?>()
-            continuation.invokeOnCancellation {
-                call.cancel()
-                responseRef.getAndSet(null)?.close()
-            }
-            call.enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    if (continuation.isActive) continuation.resumeWithException(e)
-                }
-
-                override fun onResponse(call: Call, response: Response) {
-                    responseRef.set(response)
-                    if (continuation.isActive) {
-                        continuation.resume(response)
-                    } else {
-                        responseRef.getAndSet(null)?.close()
-                    }
-                }
-            })
-        }
-
-    private fun readBounded(response: Response, maxBytes: Int): String {
-        val body = response.body ?: return ""
-        if (body.contentLength() > maxBytes) throw IllegalStateException("Response exceeds the 2 MB limit.")
-        body.byteStream().use { input ->
-            val output = java.io.ByteArrayOutputStream()
-            val buffer = ByteArray(8192)
-            var total = 0
-            while (true) {
-                val count = input.read(buffer)
-                if (count < 0) break
-                total += count
-                if (total > maxBytes) throw IllegalStateException("Response exceeds the 2 MB limit.")
-                output.write(buffer, 0, count)
-            }
-            return output.toString(Charsets.UTF_8.name())
         }
     }
 
