@@ -8,12 +8,13 @@ data class PendingChatContext(val name: String, val content: String)
 
 object PendingChatContextRecovery {
     fun restoreIfNoReplacement(
+        selectionChangedDuringRequest: Boolean,
         currentName: String?,
         currentContent: String?,
         submittedName: String?,
         submittedContent: String?
     ): PendingChatContext? {
-        if (currentName != null || currentContent != null) return null
+        if (selectionChangedDuringRequest || currentName != null || currentContent != null) return null
         val name = submittedName?.takeIf(String::isNotBlank) ?: return null
         val content = submittedContent ?: return null
         return PendingChatContext(name, content)
