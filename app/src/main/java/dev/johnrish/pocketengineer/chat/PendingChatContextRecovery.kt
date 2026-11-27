@@ -1,8 +1,8 @@
 package dev.johnrish.pocketengineer.chat
 
 /**
- * Restores a submitted file attachment after a stopped request only when the user has not
- * selected a replacement attachment while the request was running.
+ * Restores submitted file context after an unsuccessful request only when the user has not
+ * changed or explicitly cleared the attachment selection while the request was running.
  */
 data class PendingChatContext(val name: String, val content: String)
 
