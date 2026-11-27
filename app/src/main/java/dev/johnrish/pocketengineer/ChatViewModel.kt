@@ -42,6 +42,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         .build()
     private var chatJob: Job? = null
     private var stopRequested = false
+    private var pendingContextChangedDuringGeneration = false
     var historyWarning by androidx.compose.runtime.mutableStateOf<String?>(null)
         private set
     var messages by androidx.compose.runtime.mutableStateOf(loadMessages(prefs))
@@ -405,6 +406,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             workspaceError = "File context exceeds the ${MAX_CONTEXT_CHARS / 1024} KB character limit. Use a smaller file."
             return false
         }
+        if (busy) pendingContextChangedDuringGeneration = true
         pendingContextName = name
         pendingContextContent = content
         workspaceError = null
@@ -412,8 +414,22 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun removePendingContext() {
+        if (busy) pendingContextChangedDuringGeneration = true
         pendingContextName = null
         pendingContextContent = null
+    }
+
+    private fun restoreSubmittedContextIfUnchanged(name: String?, content: String?): Boolean {
+        val restored = PendingChatContextRecovery.restoreIfNoReplacement(
+            selectionChangedDuringRequest = pendingContextChangedDuringGeneration,
+            currentName = pendingContextName,
+            currentContent = pendingContextContent,
+            submittedName = name,
+            submittedContent = content
+        ) ?: return false
+        pendingContextName = restored.name
+        pendingContextContent = restored.content
+        return true
     }
 
     fun workspaceToolManifest(): JSONArray = workspaceUri?.let {
@@ -437,6 +453,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         persistMessages()
         removePendingContext()
         busy = true
+        pendingContextChangedDuringGeneration = false
         generationStatus = null
         stopRequested = false
         chatJob = viewModelScope.launch {
@@ -451,28 +468,29 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 if (stopRequested && messages.lastOrNull() == submittedMessage) {
                     messages = messages.dropLast(1)
                     persistMessages()
-                    PendingChatContextRecovery.restoreIfNoReplacement(
-                        currentName = pendingContextName,
-                        currentContent = pendingContextContent,
-                        submittedName = attachedName,
-                        submittedContent = attachedContent
-                    )?.let { restored ->
-                        pendingContextName = restored.name
-                        pendingContextContent = restored.content
+                    val contextRestored = restoreSubmittedContextIfUnchanged(attachedName, attachedContent)
+                    generationStatus = if (contextRestored) {
+                        "Generation stopped. Your prompt and attached file are ready to retry."
+                    } else {
+                        "Generation stopped. Your prompt and current attachment selection are unchanged."
                     }
-                    generationStatus = "Generation stopped. Your prompt and file context are still available to retry."
                 }
                 throw cancelled
             } catch (error: Exception) {
+                val contextRestored = restoreSubmittedContextIfUnchanged(attachedName, attachedContent)
                 messages = messages + ChatMessage(
                     "assistant",
                     "Request failed: ${error.message ?: "Unknown error"}. Your prompt is preserved; retry when ready."
                 )
+                if (contextRestored) {
+                    generationStatus = "Your prompt and attached file are ready to retry."
+                }
                 persistMessages()
             } finally {
                 busy = false
                 chatJob = null
                 stopRequested = false
+                pendingContextChangedDuringGeneration = false
             }
         }
     }
