@@ -1,6 +1,7 @@
 package dev.johnrish.pocketengineer.network
 
 import kotlinx.coroutines.async
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -30,7 +31,7 @@ class CancellableOkHttpCallTest {
         val request = request()
         val call = RecordingCall(request)
         val body = TrackingBody("ready")
-        val pending = async { factory(call).executeCancellable(request, maxBodyBytes = 32) }
+        val pending = async(start = CoroutineStart.UNDISPATCHED) { factory(call).executeCancellable(request, maxBodyBytes = 32) }
 
         assertTrue(call.enqueued.await(2, TimeUnit.SECONDS))
         call.callback!!.onResponse(call, response(request, body))
@@ -45,7 +46,7 @@ class CancellableOkHttpCallTest {
     fun cancellationCancelsCallAndClosesLateResponse() = runBlocking {
         val request = request()
         val call = RecordingCall(request)
-        val pending = launch { factory(call).executeCancellable(request, maxBodyBytes = 32) }
+        val pending = launch(start = CoroutineStart.UNDISPATCHED) { factory(call).executeCancellable(request, maxBodyBytes = 32) }
 
         assertTrue(call.enqueued.await(2, TimeUnit.SECONDS))
         pending.cancelAndJoin()
@@ -61,7 +62,7 @@ class CancellableOkHttpCallTest {
         val request = request()
         val call = RecordingCall(request)
         val body = BlockingBody()
-        val pending = launch { factory(call).executeCancellable(request, maxBodyBytes = 32) }
+        val pending = launch(start = CoroutineStart.UNDISPATCHED) { factory(call).executeCancellable(request, maxBodyBytes = 32) }
 
         assertTrue(call.enqueued.await(2, TimeUnit.SECONDS))
         val callbackThread = Thread {
@@ -83,7 +84,7 @@ class CancellableOkHttpCallTest {
         val request = request()
         val call = RecordingCall(request)
         val body = TrackingBody("too large")
-        val pending = async {
+        val pending = async(start = CoroutineStart.UNDISPATCHED) {
             runCatching { factory(call).executeCancellable(request, maxBodyBytes = 2) }
         }
 
