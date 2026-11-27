@@ -8,6 +8,7 @@ class PendingChatContextRecoveryTest {
     @Test
     fun restoresSubmittedAttachmentWhenNoReplacementExists() {
         val restored = PendingChatContextRecovery.restoreIfNoReplacement(
+            selectionChangedDuringRequest = false,
             currentName = null,
             currentContent = null,
             submittedName = "MainActivity.kt",
@@ -20,6 +21,7 @@ class PendingChatContextRecoveryTest {
     @Test
     fun preservesAttachmentSelectedWhileRequestWasRunning() {
         val restored = PendingChatContextRecovery.restoreIfNoReplacement(
+            selectionChangedDuringRequest = true,
             currentName = "README.md",
             currentContent = "new selection",
             submittedName = "MainActivity.kt",
@@ -30,9 +32,23 @@ class PendingChatContextRecoveryTest {
     }
 
     @Test
+    fun doesNotRestoreAfterTheUserExplicitlyRemovesTheSubmittedAttachment() {
+        assertNull(
+            PendingChatContextRecovery.restoreIfNoReplacement(
+                selectionChangedDuringRequest = true,
+                currentName = null,
+                currentContent = null,
+                submittedName = "MainActivity.kt",
+                submittedContent = "original content"
+            )
+        )
+    }
+
+    @Test
     fun doesNotRestoreIncompleteSubmittedContext() {
         assertNull(
             PendingChatContextRecovery.restoreIfNoReplacement(
+                selectionChangedDuringRequest = false,
                 currentName = null,
                 currentContent = null,
                 submittedName = "MainActivity.kt",
@@ -41,6 +57,7 @@ class PendingChatContextRecoveryTest {
         )
         assertNull(
             PendingChatContextRecovery.restoreIfNoReplacement(
+                selectionChangedDuringRequest = false,
                 currentName = null,
                 currentContent = null,
                 submittedName = " ",
@@ -53,6 +70,7 @@ class PendingChatContextRecoveryTest {
     fun doesNotOverwritePartiallyPresentCurrentContext() {
         assertNull(
             PendingChatContextRecovery.restoreIfNoReplacement(
+                selectionChangedDuringRequest = false,
                 currentName = null,
                 currentContent = "new content",
                 submittedName = "MainActivity.kt",
