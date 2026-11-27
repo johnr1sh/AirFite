@@ -11,6 +11,7 @@ import dev.johnrish.pocketengineer.agent.AgentToolCallValidation
 import dev.johnrish.pocketengineer.agent.AgentToolCallValidator
 import dev.johnrish.pocketengineer.chat.ChatHistoryEntry
 import dev.johnrish.pocketengineer.chat.ChatHistoryPolicy
+import dev.johnrish.pocketengineer.chat.PendingChatContextRecovery
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -450,7 +451,16 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 if (stopRequested && messages.lastOrNull() == submittedMessage) {
                     messages = messages.dropLast(1)
                     persistMessages()
-                    generationStatus = "Generation stopped. Your prompt is still in the composer."
+                    PendingChatContextRecovery.restoreIfNoReplacement(
+                        currentName = pendingContextName,
+                        currentContent = pendingContextContent,
+                        submittedName = attachedName,
+                        submittedContent = attachedContent
+                    )?.let { restored ->
+                        pendingContextName = restored.name
+                        pendingContextContent = restored.content
+                    }
+                    generationStatus = "Generation stopped. Your prompt and file context are still available to retry."
                 }
                 throw cancelled
             } catch (error: Exception) {
