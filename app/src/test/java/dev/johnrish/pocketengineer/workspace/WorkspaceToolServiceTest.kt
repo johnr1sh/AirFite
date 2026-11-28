@@ -281,6 +281,27 @@ class WorkspaceToolServiceTest {
     }
 
     @Test
+    fun enforcesPatchSourceSizeBeforeCredentialScanning() {
+        val oversized = "api_key = a-real-looking-secret-value\n".padEnd(
+            WorkspaceToolService.MAX_PATCH_SOURCE_CHARS + 1,
+            'x'
+        )
+        val source = FakeDataSource(contents = mapOf("src/Main.kt" to oversized))
+
+        assertThrows(IllegalArgumentException::class.java) {
+            WorkspaceToolService(source).execute(
+                WorkspaceToolService.PROPOSE_PATCH,
+                mapOf(
+                    "path" to "src/Main.kt",
+                    "expectedText" to "api_key = a-real-looking-secret-value",
+                    "replacementText" to "removed",
+                    "rationale" to "Remove an oversized source."
+                )
+            )
+        }
+    }
+
+    @Test
     fun rejectsOversizedAndNoOpPatchProposals() {
         val source = FakeDataSource(contents = mapOf("src/Main.kt" to "value\n"))
         val service = WorkspaceToolService(source)
