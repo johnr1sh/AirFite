@@ -1,3 +1,10 @@
+## 2026-11-28 (surface read-only patch proposals in chat)
+- Added a bounded proposal presentation model that accepts only explicit `proposal_only` results with `applied=false`, a valid workspace-relative path, a non-sensitive target, non-no-op snippets, positive line number, bounded rationale/diff text, and distinct SHA-256 fingerprints.
+- Captured validated proposal results from the agent tool loop and surfaced up to five session-only, dismissible review cards in Chat. Cards show the target, rationale, starting line, bounded diff preview, and source/proposed fingerprints; users can copy the diff.
+- Clear proposals when starting a new conversation or switching workspaces. Late results from a request targeting a previous workspace are not shown after the selection changes.
+- No Apply action, workspace write method, backup, or undo was added. The review UI is explicitly preview-only.
+- Added JVM tests for valid proposal parsing, stable identity, applied/unrecognized results, unsafe/sensitive paths, invalid hashes, no-op changes, invalid line numbers, and size limits.
+
 ## 2026-11-28 (bounded foreground chat retries)
 - Added two bounded foreground retries for connection failures before response headers, plus transient HTTP 408, 425, 429, and 5xx responses.
 - Captured `Retry-After` response headers and support both non-negative seconds and RFC 1123 HTTP dates. Automatic waits are capped at 30 seconds; longer provider-directed waits are surfaced instead of retrying earlier than requested.
