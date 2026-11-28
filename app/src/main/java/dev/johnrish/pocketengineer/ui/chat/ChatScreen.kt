@@ -73,8 +73,13 @@ fun ChatScreen(
 ) {
     val listState = rememberLazyListState()
     val itemCount = vm.messages.size + if (vm.busy) 1 else 0
-    LaunchedEffect(itemCount, vm.streamingText.length) {
+    LaunchedEffect(itemCount) {
         if (itemCount > 0) listState.animateScrollToItem(itemCount - 1)
+    }
+    LaunchedEffect(vm.streamingText.length) {
+        if (vm.busy && vm.streamingText.isNotEmpty() && itemCount > 0) {
+            listState.scrollToItem(itemCount - 1)
+        }
     }
 
     Column(modifier.fillMaxSize().padding(horizontal = 16.dp).imePadding()) {
