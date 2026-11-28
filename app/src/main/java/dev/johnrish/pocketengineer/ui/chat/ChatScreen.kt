@@ -47,11 +47,15 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.johnrish.pocketengineer.ChatMessage
 import dev.johnrish.pocketengineer.ChatViewModel
+import dev.johnrish.pocketengineer.WorkspacePatchProposal
 import dev.johnrish.pocketengineer.ui.components.AirFiteMark
 import dev.johnrish.pocketengineer.ui.components.InlineNotice
 import dev.johnrish.pocketengineer.ui.components.ScreenHeader
@@ -72,7 +76,7 @@ fun ChatScreen(
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
-    val itemCount = vm.messages.size + if (vm.busy) 1 else 0
+    val itemCount = vm.messages.size + vm.patchProposals.size + if (vm.busy) 1 else 0
     LaunchedEffect(itemCount) {
         if (itemCount > 0) listState.animateScrollToItem(itemCount - 1)
     }
@@ -113,6 +117,9 @@ fun ChatScreen(
         ) {
             if (vm.messages.isEmpty()) item { EmptyChat(onPick = { vm.input = it }) }
             items(vm.messages) { message -> MessageRow(message) }
+            items(vm.patchProposals, key = { it.id }) { proposal ->
+                PatchProposalCard(proposal) { vm.dismissPatchProposal(proposal.id) }
+            }
             if (vm.busy) item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -254,6 +261,77 @@ private fun MessageRow(message: ChatMessage) {
             Box(Modifier.width(3.dp).fillMaxHeight().background(if (isUser) scheme.outline else scheme.primary))
             Spacer(Modifier.width(12.dp))
             SelectionContainer { Text(message.content, style = MaterialTheme.typography.bodyLarge) }
+        }
+    }
+}
+
+
+@Composable
+private fun PatchProposalCard(proposal: WorkspacePatchProposal, onDismiss: () -> Unit) {
+    val clipboard = LocalClipboardManager.current
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Outlined.Code,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("Code change proposal", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "Preview only · no file was changed",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                TextButton(onClick = onDismiss) { Text("Dismiss") }
+            }
+            Text(
+                proposal.path,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(proposal.rationale, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "Starting at line ${proposal.lineNumber}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.surfaceContainer
+            ) {
+                SelectionContainer {
+                    Text(
+                        proposal.diffPreview,
+                        modifier = Modifier.fillMaxWidth().padding(10.dp),
+                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                        maxLines = 18,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = {
+                    clipboard.setText(AnnotatedString(proposal.diffPreview))
+                }) {
+                    Text("Copy diff")
+                }
+                Spacer(Modifier.weight(1f))
+                Text(
+                    "Base ${proposal.baseSha256.take(10)} → ${proposal.proposedSha256.take(10)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
