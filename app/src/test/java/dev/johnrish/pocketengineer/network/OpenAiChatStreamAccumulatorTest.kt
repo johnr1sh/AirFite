@@ -1,6 +1,5 @@
 package dev.johnrish.pocketengineer.network
 
-import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -107,6 +106,23 @@ class OpenAiChatStreamAccumulatorTest {
         assertThrows(IllegalArgumentException::class.java) {
             indexLimited.accept(ServerSentEvent(
                 """{"choices":[{"delta":{"tool_calls":[{"index":1,"function":{"name":"tool"}}]}}]}""",
+                "message",
+                null
+            ))
+        }
+    }
+
+    @Test
+    fun rejectsChangedToolCallIdsAcrossFragments() {
+        val accumulator = OpenAiChatStreamAccumulator()
+        accumulator.accept(ServerSentEvent(
+            """{"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_a"}]}}]}""",
+            "message",
+            null
+        ))
+        assertThrows(IllegalArgumentException::class.java) {
+            accumulator.accept(ServerSentEvent(
+                """{"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_b"}]}}]}""",
                 "message",
                 null
             ))
