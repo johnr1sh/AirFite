@@ -64,9 +64,16 @@ class OpenAiChatStreamAccumulator(
             throw IllegalStateException(message?.take(400) ?: "Provider returned a streaming error.")
         }
 
-        val choices = root.optJSONArray("choices") ?: return null
+        val choicesValue = root.opt("choices")
+        if (choicesValue == null || choicesValue == JSONObject.NULL) return null
+        if (choicesValue !is JSONArray) {
+            throw IllegalArgumentException("Provider returned an invalid streamed choices value.")
+        }
+        val choices = choicesValue
         if (choices.length() == 0) return null
-        val delta = choices.optJSONObject(0)?.optJSONObject("delta") ?: return null
+        val choice = choices.optJSONObject(0)
+            ?: throw IllegalArgumentException("Provider returned an invalid streamed choice.")
+        val delta = choice.optJSONObject("delta") ?: return null
 
         var contentChanged = false
         val text = delta.opt("content")
@@ -105,6 +112,9 @@ class OpenAiChatStreamAccumulator(
                     if (id.length > MAX_TOOL_ID_CHARS) {
                         throw IllegalArgumentException("Provider tool-call ID exceeds the configured limit.")
                     }
+                    if (call.id.isNotBlank() && call.id != id) {
+                        throw IllegalArgumentException("Provider changed a streamed tool-call ID.")
+                    }
                     call.id = id
                 }
                 fragment.optString("type").takeIf { it.isNotBlank() }?.let { type ->
@@ -114,7 +124,11 @@ class OpenAiChatStreamAccumulator(
                     call.type = type
                 }
 
-                val function = fragment.optJSONObject("function")
+                val functionValue = fragment.opt("function")
+                if (functionValue != null && functionValue != JSONObject.NULL && functionValue !is JSONObject) {
+                    throw IllegalArgumentException("Provider returned an invalid streamed tool-call function.")
+                }
+                val function = functionValue as? JSONObject
                 if (function != null) {
                     appendBounded(call.name, function.optString("name"), MAX_TOOL_NAME_CHARS, "tool name")
                     appendBounded(
