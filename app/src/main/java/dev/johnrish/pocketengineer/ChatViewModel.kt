@@ -25,6 +25,7 @@ import dev.johnrish.pocketengineer.network.executeCancellableStream
 import dev.johnrish.pocketengineer.network.CancellableHttpStreamEvent
 import dev.johnrish.pocketengineer.network.OpenAiChatStreamAccumulator
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.takeWhile
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -587,20 +588,29 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             var responseCode: Int? = null
             var rawBody: String? = null
             var lastPublishedTextLength = 0
-            client.executeCancellableStream(request, MAX_CHAT_RESPONSE_BYTES).collect { event ->
-                currentCoroutineContext().ensureActive()
-                when (event) {
-                    is CancellableHttpStreamEvent.ResponseStarted -> responseCode = event.code
-                    is CancellableHttpStreamEvent.RawBody -> rawBody = event.body
-                    is CancellableHttpStreamEvent.ServerEvent -> {
-                        accumulator.accept(event.event)
-                        if (accumulator.contentLength - lastPublishedTextLength >= STREAM_UI_UPDATE_CHARS) {
-                            lastPublishedTextLength = accumulator.contentLength
-                            onStreamingText(accumulator.contentText)
+            client.executeCancellableStream(request, MAX_CHAT_RESPONSE_BYTES)
+                .takeWhile { event ->
+                    currentCoroutineContext().ensureActive()
+                    when (event) {
+                        is CancellableHttpStreamEvent.ResponseStarted -> {
+                            responseCode = event.code
+                            true
+                        }
+                        is CancellableHttpStreamEvent.RawBody -> {
+                            rawBody = event.body
+                            false
+                        }
+                        is CancellableHttpStreamEvent.ServerEvent -> {
+                            accumulator.accept(event.event)
+                            if (accumulator.contentLength - lastPublishedTextLength >= STREAM_UI_UPDATE_CHARS) {
+                                lastPublishedTextLength = accumulator.contentLength
+                                onStreamingText(accumulator.contentText)
+                            }
+                            !accumulator.isDone
                         }
                     }
                 }
-            }
+                .collect { }
 
             val code = responseCode
                 ?: throw IllegalStateException("Provider closed the stream before returning response headers.")
