@@ -56,6 +56,9 @@ class OpenAiChatStreamAccumulator(
         } catch (_: Exception) {
             throw IllegalArgumentException("Provider returned a malformed streaming event.")
         }
+        if (event.type == "error" && !root.has("error")) {
+            throw IllegalStateException("Provider returned a streaming error event.")
+        }
         root.optJSONObject("error")?.let { error ->
             val message = error.optString("message").takeIf { it.isNotBlank() }
             throw IllegalStateException(message?.take(400) ?: "Provider returned a streaming error.")
@@ -67,6 +70,9 @@ class OpenAiChatStreamAccumulator(
 
         var contentChanged = false
         val text = delta.opt("content")
+        if (text != null && text != JSONObject.NULL && text !is String) {
+            throw IllegalArgumentException("Provider returned an unsupported streamed content value.")
+        }
         if (text is String && text.isNotEmpty()) {
             if (text.length > maxContentChars - content.length) {
                 throw IllegalArgumentException("Provider response exceeds the configured text limit.")
@@ -75,13 +81,19 @@ class OpenAiChatStreamAccumulator(
             contentChanged = true
         }
 
-        val callDeltas = delta.optJSONArray("tool_calls")
+        val callValue = delta.opt("tool_calls")
+        if (callValue != null && callValue != JSONObject.NULL && callValue !is JSONArray) {
+            throw IllegalArgumentException("Provider returned an invalid streamed tool-call list.")
+        }
+        val callDeltas = callValue as? JSONArray
         if (callDeltas != null) {
             for (index in 0 until callDeltas.length()) {
                 val fragment = callDeltas.optJSONObject(index)
                     ?: throw IllegalArgumentException("Provider returned an invalid streamed tool call.")
                 val callIndex = fragment.optInt("index", -1)
-                if (callIndex < 0) throw IllegalArgumentException("Streamed tool call is missing its index.")
+                if (callIndex !in 0 until maxToolCalls) {
+                    throw IllegalArgumentException("Streamed tool call index is outside the configured limit.")
+                }
                 val call = toolCalls[callIndex] ?: run {
                     if (toolCalls.size >= maxToolCalls) {
                         throw IllegalArgumentException("Provider exceeded the tool-call limit.")
@@ -95,7 +107,12 @@ class OpenAiChatStreamAccumulator(
                     }
                     call.id = id
                 }
-                fragment.optString("type").takeIf { it.isNotBlank() }?.let { call.type = it }
+                fragment.optString("type").takeIf { it.isNotBlank() }?.let { type ->
+                    if (type != "function") {
+                        throw IllegalArgumentException("Provider returned an unsupported streamed tool-call type.")
+                    }
+                    call.type = type
+                }
 
                 val function = fragment.optJSONObject("function")
                 if (function != null) {
@@ -121,7 +138,7 @@ class OpenAiChatStreamAccumulator(
 
         if (toolCalls.isNotEmpty()) {
             val calls = JSONArray()
-            toolCalls.forEach { (index, call) ->
+            toolCalls.forEach { (_, call) ->
                 calls.put(
                     JSONObject()
                         .put("id", call.id)
@@ -132,7 +149,6 @@ class OpenAiChatStreamAccumulator(
                                 .put("name", call.name.toString())
                                 .put("arguments", call.arguments.toString())
                         )
-                        .put("index", index)
                 )
             }
             message.put("tool_calls", calls)
