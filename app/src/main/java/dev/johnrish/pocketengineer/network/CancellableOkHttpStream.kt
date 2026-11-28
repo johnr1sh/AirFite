@@ -1,5 +1,6 @@
 package dev.johnrish.pocketengineer.network
 
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -31,6 +32,7 @@ sealed interface CancellableHttpStreamEvent {
  * rather than dropping deltas or accumulating an unbounded queue. Cancelling collection cancels
  * the underlying Call and closes the active response.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 fun Call.Factory.executeCancellableStream(
     request: Request,
     maxBodyBytes: Int
