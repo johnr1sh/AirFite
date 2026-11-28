@@ -586,17 +586,17 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             val accumulator = OpenAiChatStreamAccumulator()
             var responseCode: Int? = null
             var rawBody: String? = null
-            var lastVisibleText = ""
+            var lastPublishedTextLength = 0
             client.executeCancellableStream(request, MAX_CHAT_RESPONSE_BYTES).collect { event ->
                 currentCoroutineContext().ensureActive()
                 when (event) {
                     is CancellableHttpStreamEvent.ResponseStarted -> responseCode = event.code
                     is CancellableHttpStreamEvent.RawBody -> rawBody = event.body
                     is CancellableHttpStreamEvent.ServerEvent -> {
-                        val updated = accumulator.accept(event.event)
-                        if (updated != null && updated != lastVisibleText) {
-                            lastVisibleText = updated
-                            onStreamingText(updated)
+                        accumulator.accept(event.event)
+                        if (accumulator.contentLength - lastPublishedTextLength >= STREAM_UI_UPDATE_CHARS) {
+                            lastPublishedTextLength = accumulator.contentLength
+                            onStreamingText(accumulator.contentText)
                         }
                     }
                 }
@@ -611,6 +611,11 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 throw IllegalStateException(
                     "HTTP $code${providerMessage?.takeIf { it.isNotBlank() }?.let { ": ${it.take(400)}" } ?: ""}"
                 )
+            }
+
+            if (rawBody == null && accumulator.contentLength > lastPublishedTextLength) {
+                lastPublishedTextLength = accumulator.contentLength
+                onStreamingText(accumulator.contentText)
             }
 
             val message = if (rawBody != null) {
@@ -664,6 +669,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         const val MAX_CONTEXT_CHARS = 64 * 1024
         const val MAX_MODELS_RESPONSE_BYTES = 2 * 1024 * 1024
         const val MAX_CHAT_RESPONSE_BYTES = 4 * 1024 * 1024
+        const val STREAM_UI_UPDATE_CHARS = 64
         const val MAX_HISTORY_MESSAGES = 12
         const val MAX_AGENT_TOOL_ROUNDS = 4
         const val MAX_AGENT_TOOL_CALLS_PER_ROUND = 8
