@@ -17,7 +17,7 @@ class OpenAiChatStreamAccumulatorTest {
             "message",
             null
         )))
-        assertEquals("Hello world", accumulator.accept(ServerSentEvent(
+        assertEquals(" world", accumulator.accept(ServerSentEvent(
             """{"choices":[{"delta":{"content":" world"}}]}""",
             "message",
             null
