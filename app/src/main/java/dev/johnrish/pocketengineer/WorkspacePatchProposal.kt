@@ -57,6 +57,16 @@ data class WorkspacePatchProposal(
             ) {
                 return null
             }
+            // Defense in depth: never surface a preview containing a credential, including the
+            // removed side of a diff if a malformed or future tool implementation returns one.
+            if (runCatching {
+                    SensitiveFileGuard.requireSafeContent(before)
+                    SensitiveFileGuard.requireSafeContent(after)
+                    SensitiveFileGuard.requireSafeContent(diffPreview)
+                }.isFailure
+            ) {
+                return null
+            }
 
             return WorkspacePatchProposal(
                 id = "$path:$baseSha256:$proposedSha256",
