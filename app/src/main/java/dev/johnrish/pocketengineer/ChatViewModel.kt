@@ -60,6 +60,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     var streamingText by androidx.compose.runtime.mutableStateOf("")
     var generationStatus by androidx.compose.runtime.mutableStateOf<String?>(null)
         private set
+    var patchProposals by androidx.compose.runtime.mutableStateOf<List<WorkspacePatchProposal>>(emptyList())
+        private set
     var baseUrl by androidx.compose.runtime.mutableStateOf(prefs.getString("baseUrl", "https://api.openai.com/v1") ?: "")
     var apiKey by androidx.compose.runtime.mutableStateOf(loadApiKey(app))
     var model by androidx.compose.runtime.mutableStateOf(prefs.getString("model", "gpt-4o-mini") ?: "")
@@ -139,6 +141,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             .apply()
         historyWarning = null
         generationStatus = null
+        patchProposals = emptyList()
         input = ""
         removePendingContext()
     }
@@ -295,6 +298,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         workspaceRefreshJob?.cancel()
         workspaceOpenJob?.cancel()
         workspaceUri = uri
+        patchProposals = emptyList()
         workspaceFiles = emptyList()
         workspaceName = null
         workspaceSearch = ""
@@ -450,6 +454,10 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         return WorkspaceTools(getApplication<Application>(), uri).callTool(name, arguments)
     }
 
+    fun dismissPatchProposal(id: String) {
+        patchProposals = patchProposals.filterNot { it.id == id }
+    }
+
     fun send() {
         val prompt = input.trim()
         if (prompt.isEmpty() || busy) return
@@ -537,7 +545,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         if (apiKey.isBlank()) throw IllegalStateException("Add your API key in Settings first.")
         val base = ProviderEndpoint.normalize(baseUrl) ?: throw IllegalStateException(ProviderEndpoint.ERROR_MESSAGE)
         val endpoint = "$base/chat/completions"
-        val workspaceTools = workspaceUri?.let { WorkspaceTools(getApplication<Application>(), it) }
+        val requestWorkspaceUri = workspaceUri
+        val workspaceTools = requestWorkspaceUri?.let { WorkspaceTools(getApplication<Application>(), it) }
         val workspaceSummary = workspaceTools?.let { tools ->
             runCatching {
                 val entries = tools.listFiles().take(100)
@@ -631,6 +640,15 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                         ?: JSONObject().put("error", "No workspace is selected.")
                 }.getOrElse { JSONObject().put("error", it.message ?: "Tool execution failed.") }
                 currentCoroutineContext().ensureActive()
+                WorkspacePatchProposal.fromToolResult(result)?.let { proposal ->
+                    withContext(Dispatchers.Main.immediate) {
+                        if (workspaceUri == requestWorkspaceUri) {
+                            patchProposals = (
+                                patchProposals.filterNot { it.id == proposal.id } + proposal
+                            ).takeLast(MAX_VISIBLE_PATCH_PROPOSALS)
+                        }
+                    }
+                }
                 val toolOutput = AgentToolCallValidator.boundedResult(result, MAX_AGENT_TOOL_RESULT_CHARS)
                 messages.put(JSONObject().put("role", "tool").put("tool_call_id", call.id).put("content", toolOutput))
             }
@@ -756,6 +774,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         const val MAX_FOREGROUND_RETRIES = ForegroundRetryPolicy.MAX_RETRIES
         const val MAX_AGENT_TOOL_CALLS_PER_ROUND = 8
         const val MAX_AGENT_TOOL_RESULT_CHARS = 80 * 1024
+        const val MAX_VISIBLE_PATCH_PROPOSALS = 5
         const val MAX_SAVED_MESSAGES = ChatHistoryPolicy.MAX_MESSAGES
         const val MAX_SAVED_HISTORY_CHARS = ChatHistoryPolicy.MAX_TOTAL_CHARS
         private const val ENCRYPTED_CHAT_HISTORY = "encryptedChatHistory"
