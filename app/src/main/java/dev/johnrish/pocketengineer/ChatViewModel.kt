@@ -490,7 +490,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 val contextRestored = restoreSubmittedContextIfUnchanged(attachedName, attachedContent)
                 messages = messages + ChatMessage(
                     "assistant",
-                    "Request failed: \${error.message ?: "Unknown error"}. Your prompt is preserved; retry when ready."
+                    "Request failed: ${error.message ?: "Unknown error"}. Your prompt is preserved; retry when ready."
                 )
                 if (contextRestored) {
                     generationStatus = "Your prompt and attached file are ready to retry."
@@ -580,7 +580,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 .put("messages", messages)
                 .put("stream", true)
             if (tools != null && tools.length() > 0) body.put("tools", tools).put("tool_choice", "auto")
-            val request = Request.Builder().url(endpoint).header("Authorization", "Bearer \${apiKey.trim()}")
+            val request = Request.Builder().url(endpoint).header("Authorization", "Bearer ${apiKey.trim()}")
                 .header("Content-Type", "application/json").post(body.toString().toRequestBody("application/json".toMediaType())).build()
 
             val accumulator = OpenAiChatStreamAccumulator()
@@ -609,7 +609,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     runCatching { JSONObject(it).optJSONObject("error")?.optString("message") }.getOrNull()
                 }
                 throw IllegalStateException(
-                    "HTTP $code\${providerMessage?.takeIf { it.isNotBlank() }?.let { ": \${it.take(400)}" } ?: ""}"
+                    "HTTP $code${providerMessage?.takeIf { it.isNotBlank() }?.let { ": ${it.take(400)}" } ?: ""}"
                 )
             }
 
