@@ -1,3 +1,12 @@
+## 2026-11-28 (bounded foreground chat retries)
+- Added two bounded foreground retries for connection failures before response headers, plus transient HTTP 408, 425, 429, and 5xx responses.
+- Captured `Retry-After` response headers and support both non-negative seconds and RFC 1123 HTTP dates. Automatic waits are capped at 30 seconds; longer provider-directed waits are surfaced instead of retrying earlier than requested.
+- Avoid replay after response headers or any streamed text/tool-call delta, preventing duplicate paid generations and possible repeated tool side effects. Cancellation during backoff remains immediate through cancellable coroutine `delay`.
+- Do not retry provider quota exhaustion codes (`insufficient_quota`, `billing_hard_limit_reached`, `quota_exceeded`) even when the HTTP status is 429.
+- Added JVM policy tests for transient/permanent statuses, attempt bounds, quota errors, Retry-After seconds/date, invalid headers, and exponential-backoff caps.
+- Research: [RFC 9110 §10.2.3](https://www.rfc-editor.org/rfc/rfc9110.html#section-10.2.3) defines `Retry-After` as HTTP-date or delay-seconds; [Kotlin coroutine `delay`](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/delay.html) is cancellable, so Stop remains responsive during backoff.
+- Validation: GitHub Actions will verify Android unit tests, lint, and APK assembly. No live provider endpoint or physical-device test is claimed.
+
 ## 2026-11-28 (bounded foreground chat streaming)
 - Enabled OpenAI-compatible Chat Completions streaming with `stream=true`. Assistant text is rendered incrementally in the chat timeline while the request is active; the existing Stop control cancels the same underlying OkHttp call and clears only the transient partial display.
 - Added a strict incremental Server-Sent Events parser. It handles UTF-8 text chunks, BOM, LF/CRLF/CR line endings (including split CRLF), comments, multi-line data fields, event names and IDs. It dispatches only on a blank line and discards an unterminated final event as required by the SSE format.

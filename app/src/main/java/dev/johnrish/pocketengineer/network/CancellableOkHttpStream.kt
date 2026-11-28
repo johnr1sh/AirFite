@@ -20,7 +20,11 @@ import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
 
 sealed interface CancellableHttpStreamEvent {
-    data class ResponseStarted(val code: Int, val contentType: String?) : CancellableHttpStreamEvent
+    data class ResponseStarted(
+        val code: Int,
+        val contentType: String?,
+        val retryAfter: String? = null
+    ) : CancellableHttpStreamEvent
     data class ServerEvent(val event: ServerSentEvent) : CancellableHttpStreamEvent
     data class RawBody(val body: String) : CancellableHttpStreamEvent
 }
@@ -60,7 +64,7 @@ fun Call.Factory.executeCancellableStream(
                     response.use { active ->
                         val body = active.body
                         val contentType = body?.contentType()?.toString()
-                        if (!emitBlocking(CancellableHttpStreamEvent.ResponseStarted(active.code, contentType))) {
+                        if (!emitBlocking(CancellableHttpStreamEvent.ResponseStarted(active.code, contentType, active.header("Retry-After")))) {
                             call.cancel()
                             return
                         }

@@ -18,12 +18,14 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import dev.johnrish.pocketengineer.workspace.WorkspaceOperationGate
 import dev.johnrish.pocketengineer.network.executeCancellable
 import dev.johnrish.pocketengineer.network.executeCancellableStream
 import dev.johnrish.pocketengineer.network.CancellableHttpStreamEvent
 import dev.johnrish.pocketengineer.network.OpenAiChatStreamAccumulator
+import dev.johnrish.pocketengineer.network.ForegroundRetryPolicy
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.takeWhile
 import okhttp3.MediaType.Companion.toMediaType
@@ -32,6 +34,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 data class ChatMessage(val role: String, val content: String)
@@ -466,11 +469,18 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         chatJob = viewModelScope.launch {
             try {
                 val reply = withContext(Dispatchers.IO) {
-                    requestReply(prompt, attachedName, attachedContent, priorMessages) { partial ->
-                        withContext(Dispatchers.Main.immediate) {
-                            streamingText = partial
+                    requestReply(
+                        prompt,
+                        attachedName,
+                        attachedContent,
+                        priorMessages,
+                        onStreamingText = { partial ->
+                            withContext(Dispatchers.Main.immediate) { streamingText = partial }
+                        },
+                        onRetryStatus = { status ->
+                            withContext(Dispatchers.Main.immediate) { generationStatus = status }
                         }
-                    }
+                    )
                 }
                 messages = messages + ChatMessage("assistant", reply)
                 persistMessages()
@@ -488,6 +498,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 throw cancelled
             } catch (error: Exception) {
+                generationStatus = null
                 val contextRestored = restoreSubmittedContextIfUnchanged(attachedName, attachedContent)
                 messages = messages + ChatMessage(
                     "assistant",
@@ -519,7 +530,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         contextName: String?,
         contextContent: String?,
         priorMessages: List<ChatMessage>,
-        onStreamingText: suspend (String) -> Unit
+        onStreamingText: suspend (String) -> Unit,
+        onRetryStatus: suspend (String?) -> Unit
     ): String {
         currentCoroutineContext().ensureActive()
         if (apiKey.isBlank()) throw IllegalStateException("Add your API key in Settings first.")
@@ -584,56 +596,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             val request = Request.Builder().url(endpoint).header("Authorization", "Bearer ${apiKey.trim()}")
                 .header("Content-Type", "application/json").post(body.toString().toRequestBody("application/json".toMediaType())).build()
 
-            val accumulator = OpenAiChatStreamAccumulator()
-            var responseCode: Int? = null
-            var rawBody: String? = null
-            var lastPublishedTextLength = 0
-            client.executeCancellableStream(request, MAX_CHAT_RESPONSE_BYTES)
-                .takeWhile { event ->
-                    currentCoroutineContext().ensureActive()
-                    when (event) {
-                        is CancellableHttpStreamEvent.ResponseStarted -> {
-                            responseCode = event.code
-                            true
-                        }
-                        is CancellableHttpStreamEvent.RawBody -> {
-                            rawBody = event.body
-                            false
-                        }
-                        is CancellableHttpStreamEvent.ServerEvent -> {
-                            accumulator.accept(event.event)
-                            if (accumulator.contentLength - lastPublishedTextLength >= STREAM_UI_UPDATE_CHARS) {
-                                lastPublishedTextLength = accumulator.contentLength
-                                onStreamingText(accumulator.contentText)
-                            }
-                            !accumulator.isDone
-                        }
-                    }
-                }
-                .collect { }
-
-            val code = responseCode
-                ?: throw IllegalStateException("Provider closed the stream before returning response headers.")
-            if (code !in 200..299) {
-                val providerMessage = rawBody?.let {
-                    runCatching { JSONObject(it).optJSONObject("error")?.optString("message") }.getOrNull()
-                }
-                throw IllegalStateException(
-                    "HTTP $code${providerMessage?.takeIf { it.isNotBlank() }?.let { ": ${it.take(400)}" } ?: ""}"
-                )
-            }
-
-            if (rawBody == null && accumulator.contentLength > lastPublishedTextLength) {
-                lastPublishedTextLength = accumulator.contentLength
-                onStreamingText(accumulator.contentText)
-            }
-
-            val message = if (rawBody != null) {
-                JSONObject(rawBody!!).optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")
-                    ?: throw IllegalStateException("Provider returned an unsupported response.")
-            } else {
-                accumulator.toAssistantMessage()
-            }
+            val message = requestChatCompletion(request, onStreamingText, onRetryStatus)
             val calls = message.optJSONArray("tool_calls")
             if (calls == null || calls.length() == 0) {
                 return message.optString("content").takeIf { it.isNotBlank() }
@@ -675,6 +638,114 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         throw IllegalStateException("Agent stopped without a final response.")
     }
 
+    /**
+     * Retries only transient failures that occur before response headers or streamed output.
+     * Once a provider starts a response, replaying could duplicate paid work or tool side effects.
+     */
+    private suspend fun requestChatCompletion(
+        request: Request,
+        onStreamingText: suspend (String) -> Unit,
+        onRetryStatus: suspend (String?) -> Unit
+    ): JSONObject {
+        var retryCount = 0
+        while (true) {
+            currentCoroutineContext().ensureActive()
+            val accumulator = OpenAiChatStreamAccumulator()
+            var responseCode: Int? = null
+            var retryAfter: String? = null
+            var rawBody: String? = null
+            var lastPublishedTextLength = 0
+
+            try {
+                client.executeCancellableStream(request, MAX_CHAT_RESPONSE_BYTES)
+                    .takeWhile { event ->
+                        currentCoroutineContext().ensureActive()
+                        when (event) {
+                            is CancellableHttpStreamEvent.ResponseStarted -> {
+                                responseCode = event.code
+                                retryAfter = event.retryAfter
+                                true
+                            }
+                            is CancellableHttpStreamEvent.RawBody -> {
+                                rawBody = event.body
+                                false
+                            }
+                            is CancellableHttpStreamEvent.ServerEvent -> {
+                                accumulator.accept(event.event)
+                                if (accumulator.contentLength - lastPublishedTextLength >= STREAM_UI_UPDATE_CHARS) {
+                                    lastPublishedTextLength = accumulator.contentLength
+                                    onStreamingText(accumulator.contentText)
+                                }
+                                !accumulator.isDone
+                            }
+                        }
+                    }
+                    .collect { }
+            } catch (error: IOException) {
+                val failedBeforeResponse = responseCode == null &&
+                    accumulator.contentLength == 0 &&
+                    !accumulator.hasToolCalls
+                if (!failedBeforeResponse ||
+                    !ForegroundRetryPolicy.shouldRetryNetworkFailure(retryCount, MAX_FOREGROUND_RETRIES)
+                ) {
+                    throw error
+                }
+
+                val nextAttempt = retryCount + 1
+                val waitMillis = ForegroundRetryPolicy.delayMillis(retryCount)
+                retryCount = nextAttempt
+                onRetryStatus("Connection interrupted before the response started. Retrying ($nextAttempt/$MAX_FOREGROUND_RETRIES)…")
+                delay(waitMillis)
+                continue
+            }
+
+            val code = responseCode
+                ?: throw IllegalStateException("Provider closed the stream before returning response headers.")
+            if (code !in 200..299) {
+                val providerError = rawBody?.let {
+                    runCatching { JSONObject(it).optJSONObject("error") }.getOrNull()
+                }
+                val providerMessage = providerError?.optString("message")?.takeIf { it.isNotBlank() }
+                val providerCode = providerError?.optString("code")?.takeIf { it.isNotBlank() }
+                    ?: providerError?.optString("type")?.takeIf { it.isNotBlank() }
+
+                if (ForegroundRetryPolicy.shouldRetryHttpStatus(
+                        retryCount, code, retryAfter, providerCode, maxRetries = MAX_FOREGROUND_RETRIES
+                    )
+                ) {
+                    val waitMillis = ForegroundRetryPolicy.delayMillis(retryCount, retryAfter)
+                    retryCount++
+                    val waitSeconds = (waitMillis + 999L) / 1_000L
+                    onRetryStatus("Provider temporarily unavailable (HTTP $code). Retrying in ${waitSeconds}s ($retryCount/$MAX_FOREGROUND_RETRIES)…")
+                    delay(waitMillis)
+                    continue
+                }
+
+                val waitNote = if (ForegroundRetryPolicy.retryAfterExceedsAutomaticLimit(retryAfter)) {
+                    " The provider requested a longer wait than AirFite retries automatically."
+                } else {
+                    ""
+                }
+                throw IllegalStateException(
+                    "HTTP $code${providerMessage?.let { ": ${it.take(400)}" } ?: ""}$waitNote"
+                )
+            }
+
+            onRetryStatus(null)
+            if (rawBody == null && accumulator.contentLength > lastPublishedTextLength) {
+                lastPublishedTextLength = accumulator.contentLength
+                onStreamingText(accumulator.contentText)
+            }
+
+            return if (rawBody != null) {
+                JSONObject(rawBody!!).optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")
+                    ?: throw IllegalStateException("Provider returned an unsupported response.")
+            } else {
+                accumulator.toAssistantMessage()
+            }
+        }
+    }
+
     companion object {
         const val MAX_CONTEXT_CHARS = 64 * 1024
         const val MAX_MODELS_RESPONSE_BYTES = 2 * 1024 * 1024
@@ -682,6 +753,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         const val STREAM_UI_UPDATE_CHARS = 64
         const val MAX_HISTORY_MESSAGES = 12
         const val MAX_AGENT_TOOL_ROUNDS = 4
+        const val MAX_FOREGROUND_RETRIES = ForegroundRetryPolicy.MAX_RETRIES
         const val MAX_AGENT_TOOL_CALLS_PER_ROUND = 8
         const val MAX_AGENT_TOOL_RESULT_CHARS = 80 * 1024
         const val MAX_SAVED_MESSAGES = ChatHistoryPolicy.MAX_MESSAGES
