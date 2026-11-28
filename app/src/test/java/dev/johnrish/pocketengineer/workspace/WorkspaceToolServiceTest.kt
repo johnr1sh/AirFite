@@ -263,6 +263,24 @@ class WorkspaceToolServiceTest {
     }
 
     @Test
+    fun rejectsSecretBearingSourceEvenWhenThePatchWouldRemoveTheSecret() {
+        val secretLine = "api_key = a-real-looking-secret-value"
+        val source = FakeDataSource(contents = mapOf("src/Main.kt" to "$secretLine\n"))
+
+        assertThrows(SecurityException::class.java) {
+            WorkspaceToolService(source).execute(
+                WorkspaceToolService.PROPOSE_PATCH,
+                mapOf(
+                    "path" to "src/Main.kt",
+                    "expectedText" to secretLine,
+                    "replacementText" to "api_key = \"\"",
+                    "rationale" to "Remove the exposed credential."
+                )
+            )
+        }
+    }
+
+    @Test
     fun rejectsOversizedAndNoOpPatchProposals() {
         val source = FakeDataSource(contents = mapOf("src/Main.kt" to "value\n"))
         val service = WorkspaceToolService(source)
