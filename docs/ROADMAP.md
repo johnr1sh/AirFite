@@ -1,6 +1,6 @@
 # AirFite Engineering Roadmap
 
-Updated: 2026-11-27
+Updated: 2026-11-28
 
 ## Active focus — product foundation and agent connectivity
 - [x] Establish secure external-agent connection architecture and threat model (design baseline)
@@ -48,7 +48,9 @@ Updated: 2026-11-27
 - [x] Shared HTTPS provider endpoint validation (rejects credentials, query/fragment, malformed hosts, and invalid ports), enforced on chat requests as well as settings
 - [ ] Provider presets
 - [x] Bounded provider response bodies and explicit connection/read/call timeouts
-- [x] Coroutine-cancellable foreground/background HTTP calls, visible Stop generation control, bounded response-body reads, and restoration of submitted file context after Stop or request failure unless the user changed attachment selection; [ ] streaming and foreground retry/backoff
+- [x] Coroutine-cancellable foreground/background HTTP calls, visible Stop generation control, bounded response-body reads, and restoration of submitted file context after Stop or request failure unless the user changed attachment selection
+- [x] Stream foreground Chat Completions over bounded SSE; render incremental text, reassemble fragmented tool calls, retain schema validation before dispatch, cancel the underlying HTTP call on Stop, and fall back to bounded JSON responses when a provider ignores streaming
+- [ ] Foreground retry/backoff
 - [x] Persistent recent conversation (40-message cap)
 - [x] Encrypted WorkManager background prompt tasks with bounded history (20 records), active queue cap (10), retry, cancel, and cancellation-safe result persistence
 - [x] Cancel in-flight background HTTP calls with WorkManager; retry transient provider HTTP statuses through bounded exponential backoff
