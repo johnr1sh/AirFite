@@ -3,7 +3,7 @@
 - Captured validated proposal results from the agent tool loop and surfaced up to five session-only, dismissible review cards in Chat. Cards show the target, rationale, starting line, bounded diff preview, and source/proposed fingerprints; users can copy the diff.
 - Clear proposals when starting a new conversation or switching workspaces. Late results from a request targeting a previous workspace are not shown after the selection changes.
 - No Apply action, workspace write method, backup, or undo was added. The review UI is explicitly preview-only.
-- Security review found that a patch removing a credential could still reveal the old value in its before-snippet and diff. The proposal service now rejects secret-bearing source before constructing the preview, and the chat presentation model independently scans before/after/diff text. Regression tests cover both boundaries.
+- Security review found that a patch removing a credential could still reveal the old value in its before-snippet and diff. The proposal service now enforces the source-size cap before scanning and rejects secret-bearing source before constructing the preview; the chat presentation model independently scans before/after/diff text. Regression tests cover both boundaries and the size-check ordering.
 - Added JVM tests for valid proposal parsing, stable identity, applied/unrecognized results, unsafe/sensitive paths, invalid hashes, no-op changes, invalid line numbers, and size limits.
 
 ## 2026-11-28 (bounded foreground chat retries)
