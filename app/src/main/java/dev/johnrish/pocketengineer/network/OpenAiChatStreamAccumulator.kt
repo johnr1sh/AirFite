@@ -29,6 +29,9 @@ class OpenAiChatStreamAccumulator(
     val contentText: String
         get() = content.toString()
 
+    val contentLength: Int
+        get() = content.length
+
     val hasToolCalls: Boolean
         get() = toolCalls.isNotEmpty()
 
@@ -39,7 +42,7 @@ class OpenAiChatStreamAccumulator(
     }
 
     /**
-     * Accepts one complete SSE event. Returns the latest accumulated visible text when it changes,
+     * Accepts one complete SSE event. Returns only the newly received visible text delta,
      * or null for control/metadata/tool-only events.
      */
     fun accept(event: ServerSentEvent): String? {
@@ -141,7 +144,7 @@ class OpenAiChatStreamAccumulator(
             }
         }
 
-        return if (contentChanged) content.toString() else null
+        return if (contentChanged) text as String else null
     }
 
     /** Builds a normal assistant message for the existing schema validator and tool loop. */
@@ -178,7 +181,7 @@ class OpenAiChatStreamAccumulator(
     }
 
     companion object {
-        const val MAX_CONTENT_CHARS = 2 * 1024 * 1024
+        const val MAX_CONTENT_CHARS = 256 * 1024
         const val MAX_TOOL_CALLS = 8
         const val MAX_TOOL_ARGUMENT_CHARS = 32 * 1024
         const val MAX_TOOL_ID_CHARS = 128
