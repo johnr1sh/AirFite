@@ -54,6 +54,16 @@ class WorkspacePatchProposalTest {
     }
 
     @Test
+    fun rejectsCredentialContentInTheRemovedSideOfADiff() {
+        val result = proposalResult()
+            .put("before", "api_key = a-real-looking-secret-value\n")
+            .put("after", "api_key = \"\"\n")
+            .put("diffPreview", "- api_key = a-real-looking-secret-value\n+ api_key = \"\"\n")
+
+        assertNull(WorkspacePatchProposal.fromToolResult(result))
+    }
+
+    @Test
     fun rejectsInvalidLineNumbersAndOversizedFields() {
         assertNull(WorkspacePatchProposal.fromToolResult(proposalResult().put("lineNumber", 0)))
         assertNull(
