@@ -9,12 +9,13 @@ AirFite is an Android-first coding assistant with a user-authorized local worksp
 
 ## Current capabilities
 - Four-destination interface: Chat, Files, Agents, Settings (dark theme only; adaptive launcher icon)
-- Jetpack Compose Android app and OpenAI-compatible provider settings
+- Jetpack Compose Android app with OpenAI-compatible provider settings, live SSE text streaming, and a real Stop control that cancels the active HTTP call
 - Android Storage Access Framework workspace folder selection
 - Scoped file listing, text preview, and search
 - Explicit single-file context attachment to chat (64 KB limit; sensitive filename and credential-pattern checks)
 - Transport-neutral workspace tool registry with MCP-style descriptors
-- Read-only tools: `workspace.list_files`, `workspace.read_file`, and `workspace.search_files` (`read_file` blocks likely credential paths and recognized secret content; search queries are capped at 256 characters)
+- Read-only tools: `workspace.list_files`, `workspace.read_file`, and `workspace.search_files`, plus `workspace.propose_patch` for a bounded preview only; proposals are never applied (`read_file` blocks likely credential paths and recognized secret content; search queries are capped at 256 characters)
+- Streamed assistant text and fragmented tool-call deltas are reassembled under size limits; complete tool-call batches still pass schema validation before dispatch
 - Provider tool-call validation (IDs, registered schemas, required fields, argument types, and size bounds) plus bounded, valid-JSON tool results
 - File count, depth, and read-size limits; hidden and build/dependency folders excluded
 - Encrypted WorkManager background prompt tasks with retry, cancellation, bounded queue/history, and notifications
@@ -24,7 +25,7 @@ AirFite is an Android-first coding assistant with a user-authorized local worksp
 Provider keys are encrypted using a key stored in Android Keystore. Legacy plaintext preferences are migrated on first load where possible. The key field is masked in the UI.
 
 ## Workspace security
-AirFite only accesses the folder selected through Android's document picker. The current milestone exposes read-only tools; it does not advertise write, delete, or shell tools. Workspace content is never bulk-sent automatically. The agent can request individual files through the read-only workspace tool, but likely credential paths and recognized credential patterns are blocked before content is returned. Conventional `.env.example`, `.env.sample`, and `.env.template` files may be read, but their contents are still scanned. Explicit chat attachments remain capped at 64 KB. All scanning is heuristic and cannot guarantee that every secret is detected. Workspace content is treated as untrusted data.
+AirFite only accesses the folder selected through Android's document picker. The current milestone exposes read-only tools and a read-only patch proposal; it does not advertise file writes, deletes, or shell tools. A proposal includes a diff preview and source fingerprints but never changes the workspace. Workspace content is never bulk-sent automatically. The agent can request individual files through the read-only workspace tool, but likely credential paths and recognized credential patterns are blocked before content is returned. Conventional `.env.example`, `.env.sample`, and `.env.template` files may be read, but their contents are still scanned. Explicit chat attachments remain capped at 64 KB. All scanning is heuristic and cannot guarantee that every secret is detected. Workspace content is treated as untrusted data.
 
 ## Build
 Open the repository root in Android Studio with JDK 17 and Android SDK 35, or run `gradle assembleDebug`. The CI workflow builds and uploads a debug APK artifact.

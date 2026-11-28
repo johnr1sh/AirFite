@@ -76,6 +76,11 @@ fun ChatScreen(
     LaunchedEffect(itemCount) {
         if (itemCount > 0) listState.animateScrollToItem(itemCount - 1)
     }
+    LaunchedEffect(vm.streamingText.length) {
+        if (vm.busy && vm.streamingText.isNotEmpty() && itemCount > 0) {
+            listState.scrollToItem(itemCount - 1)
+        }
+    }
 
     Column(modifier.fillMaxSize().padding(horizontal = 16.dp).imePadding()) {
         ScreenHeader(title = "Chat", subtitle = vm.workspaceName ?: "Ready for your next idea") {
@@ -109,10 +114,21 @@ fun ChatScreen(
             if (vm.messages.isEmpty()) item { EmptyChat(onPick = { vm.input = it }) }
             items(vm.messages) { message -> MessageRow(message) }
             if (vm.busy) item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                    Spacer(Modifier.width(10.dp))
-                    Text("AirFite is thinking…", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            if (vm.streamingText.isBlank()) "AirFite is thinking…" else "AirFite is writing…",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (vm.streamingText.isNotBlank()) {
+                        SelectionContainer {
+                            Text(vm.streamingText, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
                 }
             }
         }

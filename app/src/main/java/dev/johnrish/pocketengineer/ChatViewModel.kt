@@ -21,6 +21,11 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import dev.johnrish.pocketengineer.workspace.WorkspaceOperationGate
 import dev.johnrish.pocketengineer.network.executeCancellable
+import dev.johnrish.pocketengineer.network.executeCancellableStream
+import dev.johnrish.pocketengineer.network.CancellableHttpStreamEvent
+import dev.johnrish.pocketengineer.network.OpenAiChatStreamAccumulator
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.takeWhile
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -49,6 +54,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var input by androidx.compose.runtime.mutableStateOf("")
     var busy by androidx.compose.runtime.mutableStateOf(false)
+    var streamingText by androidx.compose.runtime.mutableStateOf("")
     var generationStatus by androidx.compose.runtime.mutableStateOf<String?>(null)
         private set
     var baseUrl by androidx.compose.runtime.mutableStateOf(prefs.getString("baseUrl", "https://api.openai.com/v1") ?: "")
@@ -453,13 +459,18 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         persistMessages()
         removePendingContext()
         busy = true
+        streamingText = ""
         pendingContextChangedDuringGeneration = false
         generationStatus = null
         stopRequested = false
         chatJob = viewModelScope.launch {
             try {
                 val reply = withContext(Dispatchers.IO) {
-                    requestReply(prompt, attachedName, attachedContent, priorMessages)
+                    requestReply(prompt, attachedName, attachedContent, priorMessages) { partial ->
+                        withContext(Dispatchers.Main.immediate) {
+                            streamingText = partial
+                        }
+                    }
                 }
                 messages = messages + ChatMessage("assistant", reply)
                 persistMessages()
@@ -487,6 +498,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 persistMessages()
             } finally {
+                streamingText = ""
                 busy = false
                 chatJob = null
                 stopRequested = false
@@ -506,7 +518,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         prompt: String,
         contextName: String?,
         contextContent: String?,
-        priorMessages: List<ChatMessage>
+        priorMessages: List<ChatMessage>,
+        onStreamingText: suspend (String) -> Unit
     ): String {
         currentCoroutineContext().ensureActive()
         if (apiKey.isBlank()) throw IllegalStateException("Add your API key in Settings first.")
@@ -563,52 +576,100 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         }
         repeat(MAX_AGENT_TOOL_ROUNDS + 1) { round ->
             currentCoroutineContext().ensureActive()
-            val body = JSONObject().put("model", model.trim()).put("messages", messages)
+            val body = JSONObject()
+                .put("model", model.trim())
+                .put("messages", messages)
+                .put("stream", true)
             if (tools != null && tools.length() > 0) body.put("tools", tools).put("tool_choice", "auto")
             val request = Request.Builder().url(endpoint).header("Authorization", "Bearer ${apiKey.trim()}")
                 .header("Content-Type", "application/json").post(body.toString().toRequestBody("application/json".toMediaType())).build()
-            client.executeCancellable(request, MAX_CHAT_RESPONSE_BYTES).let { response ->
-                val raw = response.body
-                if (!response.isSuccessful) {
-                    val providerMessage = runCatching { JSONObject(raw).optJSONObject("error")?.optString("message") }.getOrNull()
-                    throw IllegalStateException("HTTP ${response.code}${providerMessage?.takeIf { it.isNotBlank() }?.let { ": ${it.take(400)}" } ?: ""}")
+
+            val accumulator = OpenAiChatStreamAccumulator()
+            var responseCode: Int? = null
+            var rawBody: String? = null
+            var lastPublishedTextLength = 0
+            client.executeCancellableStream(request, MAX_CHAT_RESPONSE_BYTES)
+                .takeWhile { event ->
+                    currentCoroutineContext().ensureActive()
+                    when (event) {
+                        is CancellableHttpStreamEvent.ResponseStarted -> {
+                            responseCode = event.code
+                            true
+                        }
+                        is CancellableHttpStreamEvent.RawBody -> {
+                            rawBody = event.body
+                            false
+                        }
+                        is CancellableHttpStreamEvent.ServerEvent -> {
+                            accumulator.accept(event.event)
+                            if (accumulator.contentLength - lastPublishedTextLength >= STREAM_UI_UPDATE_CHARS) {
+                                lastPublishedTextLength = accumulator.contentLength
+                                onStreamingText(accumulator.contentText)
+                            }
+                            !accumulator.isDone
+                        }
+                    }
                 }
-                val message = JSONObject(raw).optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")
+                .collect { }
+
+            val code = responseCode
+                ?: throw IllegalStateException("Provider closed the stream before returning response headers.")
+            if (code !in 200..299) {
+                val providerMessage = rawBody?.let {
+                    runCatching { JSONObject(it).optJSONObject("error")?.optString("message") }.getOrNull()
+                }
+                throw IllegalStateException(
+                    "HTTP $code${providerMessage?.takeIf { it.isNotBlank() }?.let { ": ${it.take(400)}" } ?: ""}"
+                )
+            }
+
+            if (rawBody == null && accumulator.contentLength > lastPublishedTextLength) {
+                lastPublishedTextLength = accumulator.contentLength
+                onStreamingText(accumulator.contentText)
+            }
+
+            val message = if (rawBody != null) {
+                JSONObject(rawBody!!).optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")
                     ?: throw IllegalStateException("Provider returned an unsupported response.")
-                val calls = message.optJSONArray("tool_calls")
-                if (calls == null || calls.length() == 0) {
-                    return message.optString("content").takeIf { it.isNotBlank() }
-                        ?: throw IllegalStateException("Provider returned an empty response.")
-                }
-                if (round == MAX_AGENT_TOOL_ROUNDS) throw IllegalStateException("Agent tool-call limit reached. Please narrow your request.")
-                val validatedCalls = when (val validation = AgentToolCallValidator.validate(
-                    calls, registeredToolSchemas, MAX_AGENT_TOOL_CALLS_PER_ROUND
-                )) {
-                    is AgentToolCallValidation.Valid -> validation.calls
-                    is AgentToolCallValidation.Invalid -> throw IllegalStateException(validation.reason)
-                }
-                // Normalize provider-specific argument representations before echoing the assistant
-                // tool-call message back in the next request; the protocol expects arguments as JSON text.
-                val normalizedMessage = JSONObject(message.toString())
-                val normalizedCalls = JSONArray()
-                for (index in validatedCalls.indices) {
-                    val originalCall = calls.getJSONObject(index)
-                    originalCall.getJSONObject("function").put("arguments", validatedCalls[index].arguments.toString())
-                    normalizedCalls.put(originalCall)
-                }
-                normalizedMessage.put("tool_calls", normalizedCalls)
-                // Do not dispatch until the complete provider batch has passed validation.
-                messages.put(normalizedMessage)
-                for (call in validatedCalls) {
-                    currentCoroutineContext().ensureActive()
-                    val result = runCatching {
-                        workspaceTools?.callTool(call.name, call.arguments)
-                            ?: JSONObject().put("error", "No workspace is selected.")
-                    }.getOrElse { JSONObject().put("error", it.message ?: "Tool execution failed.") }
-                    currentCoroutineContext().ensureActive()
-                    val toolOutput = AgentToolCallValidator.boundedResult(result, MAX_AGENT_TOOL_RESULT_CHARS)
-                    messages.put(JSONObject().put("role", "tool").put("tool_call_id", call.id).put("content", toolOutput))
-                }
+            } else {
+                accumulator.toAssistantMessage()
+            }
+            val calls = message.optJSONArray("tool_calls")
+            if (calls == null || calls.length() == 0) {
+                return message.optString("content").takeIf { it.isNotBlank() }
+                    ?: throw IllegalStateException("Provider returned an empty response.")
+            }
+            if (round == MAX_AGENT_TOOL_ROUNDS) {
+                throw IllegalStateException("Agent tool-call limit reached. Please narrow your request.")
+            }
+            onStreamingText("")
+            val validatedCalls = when (val validation = AgentToolCallValidator.validate(
+                calls, registeredToolSchemas, MAX_AGENT_TOOL_CALLS_PER_ROUND
+            )) {
+                is AgentToolCallValidation.Valid -> validation.calls
+                is AgentToolCallValidation.Invalid -> throw IllegalStateException(validation.reason)
+            }
+            // Normalize provider-specific argument representations before echoing the assistant
+            // tool-call message back in the next conversation round.
+            val normalizedMessage = JSONObject(message.toString())
+            val normalizedCalls = JSONArray()
+            for (index in validatedCalls.indices) {
+                val originalCall = calls.getJSONObject(index)
+                originalCall.getJSONObject("function").put("arguments", validatedCalls[index].arguments.toString())
+                normalizedCalls.put(originalCall)
+            }
+            normalizedMessage.put("tool_calls", normalizedCalls)
+            // Do not dispatch until the complete provider batch has passed validation.
+            messages.put(normalizedMessage)
+            for (call in validatedCalls) {
+                currentCoroutineContext().ensureActive()
+                val result = runCatching {
+                    workspaceTools?.callTool(call.name, call.arguments)
+                        ?: JSONObject().put("error", "No workspace is selected.")
+                }.getOrElse { JSONObject().put("error", it.message ?: "Tool execution failed.") }
+                currentCoroutineContext().ensureActive()
+                val toolOutput = AgentToolCallValidator.boundedResult(result, MAX_AGENT_TOOL_RESULT_CHARS)
+                messages.put(JSONObject().put("role", "tool").put("tool_call_id", call.id).put("content", toolOutput))
             }
         }
         throw IllegalStateException("Agent stopped without a final response.")
@@ -618,6 +679,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         const val MAX_CONTEXT_CHARS = 64 * 1024
         const val MAX_MODELS_RESPONSE_BYTES = 2 * 1024 * 1024
         const val MAX_CHAT_RESPONSE_BYTES = 4 * 1024 * 1024
+        const val STREAM_UI_UPDATE_CHARS = 64
         const val MAX_HISTORY_MESSAGES = 12
         const val MAX_AGENT_TOOL_ROUNDS = 4
         const val MAX_AGENT_TOOL_CALLS_PER_ROUND = 8
