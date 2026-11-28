@@ -73,7 +73,7 @@ fun ChatScreen(
 ) {
     val listState = rememberLazyListState()
     val itemCount = vm.messages.size + if (vm.busy) 1 else 0
-    LaunchedEffect(itemCount) {
+    LaunchedEffect(itemCount, vm.streamingText.length) {
         if (itemCount > 0) listState.animateScrollToItem(itemCount - 1)
     }
 
@@ -109,10 +109,21 @@ fun ChatScreen(
             if (vm.messages.isEmpty()) item { EmptyChat(onPick = { vm.input = it }) }
             items(vm.messages) { message -> MessageRow(message) }
             if (vm.busy) item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                    Spacer(Modifier.width(10.dp))
-                    Text("AirFite is thinking…", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            if (vm.streamingText.isBlank()) "AirFite is thinking…" else "AirFite is writing…",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (vm.streamingText.isNotBlank()) {
+                        SelectionContainer {
+                            Text(vm.streamingText, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
                 }
             }
         }
