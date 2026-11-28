@@ -78,7 +78,7 @@ class OpenAiChatStreamAccumulator(
             ?: throw IllegalArgumentException("Provider returned an invalid streamed choice.")
         val delta = choice.optJSONObject("delta") ?: return null
 
-        var contentChanged = false
+        var contentDelta: String? = null
         val text = delta.opt("content")
         if (text != null && text != JSONObject.NULL && text !is String) {
             throw IllegalArgumentException("Provider returned an unsupported streamed content value.")
@@ -88,7 +88,7 @@ class OpenAiChatStreamAccumulator(
                 throw IllegalArgumentException("Provider response exceeds the configured text limit.")
             }
             content.append(text)
-            contentChanged = true
+            contentDelta = text
         }
 
         val callValue = delta.opt("tool_calls")
@@ -144,7 +144,7 @@ class OpenAiChatStreamAccumulator(
             }
         }
 
-        return if (contentChanged) text as String else null
+        return contentDelta
     }
 
     /** Builds a normal assistant message for the existing schema validator and tool loop. */
