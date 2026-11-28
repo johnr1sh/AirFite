@@ -117,13 +117,13 @@ class WorkspaceToolService(
         }
 
         val current = dataSource.readTextFile(path.value)
+        if (current.length > MAX_PATCH_SOURCE_CHARS) {
+            throw IllegalArgumentException("Source file exceeds the patch preview limit.")
+        }
         // The before-snippet and diff are returned to the provider and shown in chat. Reject
         // secret-bearing source before constructing either, even if the proposed replacement
         // would remove the credential from the resulting file.
         SensitiveFileGuard.requireSafeContent(current)
-        if (current.length > MAX_PATCH_SOURCE_CHARS) {
-            throw IllegalArgumentException("Source file exceeds the patch preview limit.")
-        }
         val start = current.indexOf(expected)
         if (start < 0) {
             throw IllegalStateException("Patch is stale: the expected source text was not found. Read the file again.")
